@@ -26,7 +26,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Apply targeted corrections and restore CI
+      - name: Apply targeted corrections
         shell: python
         run: |
           from pathlib import Path
@@ -68,73 +68,7 @@ jobs:
           if old not in store_text:
               raise SystemExit('expected lock-holding test block was not found')
           store.write_text(store_text.replace(old, new))
-
-          Path('.github/workflows/fix-foundation1b-clippy.yml').unlink(missing_ok=True)
           Path('foundation1b-clippy.txt').unlink(missing_ok=True)
-
-          final_ci = '''name: Foundation CI
-
-          on:
-            pull_request:
-            push:
-              branches:
-                - main
-
-          permissions:
-            contents: read
-
-          jobs:
-            typescript:
-              runs-on: ubuntu-latest
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-node@v4
-                  with:
-                    node-version: 24
-                - name: Enable pnpm
-                  run: |
-                    corepack enable
-                    corepack prepare pnpm@10.34.5 --activate
-                - name: Install
-                  run: pnpm install --frozen-lockfile
-                - name: Typecheck
-                  run: pnpm typecheck
-                - name: Build
-                  run: pnpm build
-
-            rust:
-              runs-on: ubuntu-latest
-              services:
-                postgres:
-                  image: postgres:17-alpine
-                  env:
-                    POSTGRES_DB: yorm_pay_test
-                    POSTGRES_USER: yorm
-                    POSTGRES_PASSWORD: yorm_test_only
-                  ports:
-                    - 5432:5432
-                  options: >-
-                    --health-cmd "pg_isready -U yorm -d yorm_pay_test"
-                    --health-interval 5s
-                    --health-timeout 5s
-                    --health-retries 10
-              env:
-                DATABASE_URL: postgres://yorm:yorm_test_only@127.0.0.1:5432/yorm_pay_test?sslmode=disable
-              steps:
-                - uses: actions/checkout@v4
-                - uses: dtolnay/rust-toolchain@stable
-                  with:
-                    components: rustfmt,clippy
-                - name: Format
-                  run: cargo fmt --all --check
-                - name: Clippy
-                  run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-                - name: Test
-                  run: cargo test --workspace
-                - name: Build
-                  run: cargo build --workspace
-          '''
-          Path('.github/workflows/ci.yml').write_text(final_ci.replace('          ', '', 1))
       - name: Format Rust
         run: cargo fmt --all
       - name: Commit corrections
@@ -142,7 +76,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add apps/api/src/store.rs apps/api/src/store/postgres.rs
+          git add -u foundation1b-clippy.txt
           git diff --cached --check
           git commit -m "fix: resolve Foundation 1B Clippy findings"
           git push origin HEAD:foundation/postgres-identity-v1
