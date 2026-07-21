@@ -1,0 +1,49 @@
+name: Apply Foundation 1 lock and formatting
+
+on:
+  push:
+    branches:
+      - foundation/identity-sandbox-v1
+
+permissions:
+  contents: write
+
+jobs:
+  lock-format-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/identity-sandbox-v1
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Apply rustfmt and update lockfile
+        run: |
+          cargo fmt --all
+          cargo check --workspace
+
+      - name: Validate Rust
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace
+          cargo build --workspace
+
+      - name: Commit canonical result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-foundation1-lockfmt.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "style: lock and format Foundation 1A"
+          git push origin HEAD:foundation/identity-sandbox-v1
