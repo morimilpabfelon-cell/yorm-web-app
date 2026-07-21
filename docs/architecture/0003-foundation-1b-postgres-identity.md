@@ -2,7 +2,7 @@
 
 ## Estado
 
-Propuesto en Issue #5 y PR #6.
+Implementado en PR #6; pendiente de validación automática completa y comprobación local en Windows.
 
 ## Contexto
 
