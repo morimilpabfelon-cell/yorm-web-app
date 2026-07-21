@@ -1,10 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
 use serde::Serialize;
 use std::sync::Arc;
 use tower_http::trace::TraceLayer;
@@ -51,10 +45,7 @@ pub fn app() -> Router {
 }
 
 async fn health() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        Json(HealthResponse { status: "ok" }),
-    )
+    (StatusCode::OK, Json(HealthResponse { status: "ok" }))
 }
 
 async fn system_status(State(state): State<AppState>) -> impl IntoResponse {
