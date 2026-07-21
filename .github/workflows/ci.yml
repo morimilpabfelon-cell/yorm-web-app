@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-foundation2a-integration:
+  diagnose-foundation2a-integration:
     if: >-
       github.event_name == 'pull_request' &&
       github.head_ref == 'foundation/wallet-ledger-v1' &&
@@ -22,23 +22,21 @@ jobs:
         with:
           ref: foundation/wallet-ledger-v1
           fetch-depth: 0
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: Apply integration patch
-        run: python scripts/apply_foundation2a_patch.py
-      - name: Format Rust
-        run: cargo fmt --all
-      - name: Commit integration
+      - name: Capture patch diagnostic
+        shell: bash
+        run: |
+          set +e
+          python scripts/apply_foundation2a_patch.py > foundation2a-patch.log 2>&1
+          status=$?
+          printf '\nexit_status=%s\n' "$status" >> foundation2a-patch.log
+          exit 0
+      - name: Commit diagnostic
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm scripts/apply_foundation2a_patch.py
-          git add AGENTS.md README.md apps/api/src packages/contracts/src/index.ts
-          git diff --cached --check
-          git commit -m "feat: integrate Foundation 2A wallet API"
+          git add foundation2a-patch.log
+          git commit -m "chore: capture Foundation 2A patch diagnostic"
           git push origin HEAD:foundation/wallet-ledger-v1
 
   typescript:
