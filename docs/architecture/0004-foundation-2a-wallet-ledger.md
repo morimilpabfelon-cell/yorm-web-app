@@ -2,7 +2,7 @@
 
 ## Estado
 
-Implementado en PR #8; pendiente de validación automática completa y comprobación local en Windows.
+Implementado en PR #8. La validación automática pasó completamente; queda pendiente la comprobación local en Windows y la autorización explícita de merge.
 
 ## Contexto
 
@@ -159,7 +159,7 @@ El crédito requiere sesión válida, PIN configurado y clave idempotente.
 
 ## Validación
 
-CI levanta PostgreSQL 17 y comprueba:
+CI levanta PostgreSQL 17 y comprobó:
 
 - formato y Clippy sin warnings;
 - pruebas unitarias;
@@ -171,7 +171,8 @@ CI levanta PostgreSQL 17 y comprueba:
 - ausencia de columna mutable de saldo;
 - rechazo de UPDATE/DELETE;
 - rechazo de transacción desbalanceada al confirmar;
-- persistencia después de recrear el router.
+- persistencia después de recrear el router;
+- build completo de Rust y contratos TypeScript.
 
 Windows dispone de:
 
