@@ -18,8 +18,8 @@ use crate::{
     error::ApiError,
     model::{
         CreateIdentityRequest, CreateSessionRequest, IdentityView, PayLimitsResponse, PinRequest,
-        PinVerificationResponse, SandboxCreditRequest, SandboxCreditResponse, SessionResponse,
-        WalletView,
+        PinVerificationResponse, SandboxCreditRequest, SandboxCreditResponse,
+        SandboxTransferRequest, SandboxTransferResponse, SessionResponse, WalletView,
     },
     store::{AuthenticatedIdentity, SandboxStore, epoch_seconds},
 };
@@ -88,6 +88,7 @@ fn app_with_store(store: SandboxStore) -> Router {
         .route("/v1/me/limits", get(get_limits))
         .route("/v1/me/wallet", post(create_wallet).get(get_wallet))
         .route("/v1/sandbox/wallet/credits", post(credit_wallet))
+        .route("/v1/sandbox/transfers", post(transfer_wallet))
         .route("/v1/me/session", delete(delete_session))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -224,6 +225,32 @@ async fn credit_wallet(
         )
         .await?;
     Ok((StatusCode::CREATED, Json(credit)))
+}
+
+async fn transfer_wallet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<SandboxTransferRequest>,
+) -> Result<(StatusCode, Json<SandboxTransferResponse>), ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    if !identity.view.pin_configured {
+        return Err(ApiError::conflict(
+            "PIN_REQUIRED",
+            "configure Pay Safe PIN before using sandbox P2P transfers",
+        ));
+    }
+    let key = idempotency_key(&headers)?;
+    let transfer = state
+        .store
+        .transfer_wallet(
+            identity.id,
+            request.recipient_identity_id,
+            key,
+            &request.amount_minor_units,
+            epoch_seconds(),
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(transfer)))
 }
 
 async fn delete_session(
