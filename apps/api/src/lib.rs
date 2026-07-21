@@ -43,6 +43,12 @@ struct HealthResponse {
     status: &'static str,
 }
 
+#[derive(Debug, Serialize)]
+struct DatabaseHealthResponse {
+    status: &'static str,
+    backend: &'static str,
+}
+
 pub fn sandbox_status() -> SystemStatus {
     SystemStatus {
         service: "yorm-api",
@@ -54,13 +60,24 @@ pub fn sandbox_status() -> SystemStatus {
 }
 
 pub fn app() -> Router {
+    app_with_store(SandboxStore::default())
+}
+
+pub async fn app_with_database(database_url: &str) -> Result<Router, sqlx::Error> {
+    Ok(app_with_store(
+        SandboxStore::connect_postgres(database_url).await?,
+    ))
+}
+
+fn app_with_store(store: SandboxStore) -> Router {
     let state = AppState {
         status: Arc::new(sandbox_status()),
-        store: Arc::new(SandboxStore::default()),
+        store: Arc::new(store),
     };
 
     Router::new()
         .route("/health", get(health))
+        .route("/health/database", get(database_health))
         .route("/v1/system/status", get(system_status))
         .route("/v1/sandbox/identities", post(create_identity))
         .route("/v1/sandbox/sessions", post(create_session))
@@ -77,6 +94,16 @@ async fn health() -> impl IntoResponse {
     (StatusCode::OK, Json(HealthResponse { status: "ok" }))
 }
 
+async fn database_health(
+    State(state): State<AppState>,
+) -> Result<Json<DatabaseHealthResponse>, ApiError> {
+    state.store.database_health().await?;
+    Ok(Json(DatabaseHealthResponse {
+        status: "ok",
+        backend: state.store.backend_name(),
+    }))
+}
+
 async fn system_status(State(state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, Json((*state.status).clone()))
 }
@@ -85,12 +112,15 @@ async fn create_identity(
     State(state): State<AppState>,
     Json(request): Json<CreateIdentityRequest>,
 ) -> Result<(StatusCode, Json<IdentityView>), ApiError> {
-    let identity = state.store.register_identity(
-        &request.email,
-        &request.display_name,
-        &request.country_code,
-        epoch_seconds(),
-    )?;
+    let identity = state
+        .store
+        .register_identity(
+            &request.email,
+            &request.display_name,
+            &request.country_code,
+            epoch_seconds(),
+        )
+        .await?;
 
     Ok((StatusCode::CREATED, Json(identity)))
 }
@@ -101,7 +131,8 @@ async fn create_session(
 ) -> Result<(StatusCode, Json<SessionResponse>), ApiError> {
     let session = state
         .store
-        .create_session(request.identity_id, epoch_seconds())?;
+        .create_session(request.identity_id, epoch_seconds())
+        .await?;
 
     Ok((StatusCode::CREATED, Json(session)))
 }
@@ -110,7 +141,7 @@ async fn get_me(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<IdentityView>, ApiError> {
-    let identity = authenticate(&headers, &state)?;
+    let identity = authenticate(&headers, &state).await?;
     Ok(Json(identity.view))
 }
 
@@ -119,8 +150,8 @@ async fn set_pin(
     headers: HeaderMap,
     Json(request): Json<PinRequest>,
 ) -> Result<StatusCode, ApiError> {
-    let identity = authenticate(&headers, &state)?;
-    state.store.set_pin(identity.id, &request.pin)?;
+    let identity = authenticate(&headers, &state).await?;
+    state.store.set_pin(identity.id, &request.pin).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -129,10 +160,11 @@ async fn verify_pin(
     headers: HeaderMap,
     Json(request): Json<PinRequest>,
 ) -> Result<Json<PinVerificationResponse>, ApiError> {
-    let identity = authenticate(&headers, &state)?;
+    let identity = authenticate(&headers, &state).await?;
     let result = state
         .store
-        .verify_pin(identity.id, &request.pin, epoch_seconds())?;
+        .verify_pin(identity.id, &request.pin, epoch_seconds())
+        .await?;
     Ok(Json(result))
 }
 
@@ -140,7 +172,7 @@ async fn get_limits(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<PayLimitsResponse>, ApiError> {
-    let identity = authenticate(&headers, &state)?;
+    let identity = authenticate(&headers, &state).await?;
     Ok(Json(SandboxStore::limits_for_country(
         &identity.view.country_code,
     )))
@@ -151,14 +183,18 @@ async fn delete_session(
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
     let token = bearer_token(&headers)?;
-    state.store.revoke_session(token)?;
+    state.store.revoke_session(token, epoch_seconds()).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-fn authenticate(headers: &HeaderMap, state: &AppState) -> Result<AuthenticatedIdentity, ApiError> {
+async fn authenticate(
+    headers: &HeaderMap,
+    state: &AppState,
+) -> Result<AuthenticatedIdentity, ApiError> {
     state
         .store
         .authenticate(bearer_token(headers)?, epoch_seconds())
+        .await
 }
 
 fn bearer_token(headers: &HeaderMap) -> Result<&str, ApiError> {
