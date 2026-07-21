@@ -56,14 +56,15 @@ impl LedgerStore {
         identity_id: Uuid,
         now: u64,
     ) -> Result<WalletView, ApiError> {
-        let country_code: String = sqlx::query_scalar(
-            "SELECT country_code FROM sandbox_identities WHERE id = $1",
-        )
-        .bind(identity_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|error| database_error("load identity for wallet", error))?
-        .ok_or_else(|| ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist"))?;
+        let country_code: String =
+            sqlx::query_scalar("SELECT country_code FROM sandbox_identities WHERE id = $1")
+                .bind(identity_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|error| database_error("load identity for wallet", error))?
+                .ok_or_else(|| {
+                    ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist")
+                })?;
 
         let currency = home_currency(&country_code);
         let now_database = to_database_epoch(now)?;
@@ -94,13 +95,12 @@ impl LedgerStore {
         )
         .await?;
 
-        let wallet_account_id: Uuid = sqlx::query_scalar(
-            "SELECT id FROM ledger_accounts WHERE account_code = $1",
-        )
-        .bind(&wallet_account_code)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|error| database_error("load wallet ledger account", error))?;
+        let wallet_account_id: Uuid =
+            sqlx::query_scalar("SELECT id FROM ledger_accounts WHERE account_code = $1")
+                .bind(&wallet_account_code)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(|error| database_error("load wallet ledger account", error))?;
 
         sqlx::query(
             r#"
@@ -236,20 +236,13 @@ impl LedgerStore {
             wallet.id, wallet.currency
         ));
 
-        if let Some(existing) = load_credit_by_idempotency_key(
-            &mut transaction,
-            idempotency_key,
-        )
-        .await?
+        if let Some(existing) =
+            load_credit_by_idempotency_key(&mut transaction, idempotency_key).await?
         {
             return replay_credit(existing, &fingerprint, wallet.id);
         }
 
-        let current_balance = wallet_balance(
-            &mut transaction,
-            wallet.ledger_account_id,
-        )
-        .await?;
+        let current_balance = wallet_balance(&mut transaction, wallet.ledger_account_id).await?;
         let resulting_balance = current_balance
             .checked_add(amount_minor)
             .ok_or_else(|| ApiError::bad_request("AMOUNT_OVERFLOW", "wallet balance overflow"))?;
@@ -283,23 +276,19 @@ impl LedgerStore {
         .map_err(|error| database_error("insert sandbox credit transaction", error))?;
 
         if inserted_transaction_id.is_none() {
-            let existing = load_credit_by_idempotency_key(
-                &mut transaction,
-                idempotency_key,
-            )
-            .await?
-            .ok_or_else(|| ApiError::internal("idempotent transaction disappeared"))?;
+            let existing = load_credit_by_idempotency_key(&mut transaction, idempotency_key)
+                .await?
+                .ok_or_else(|| ApiError::internal("idempotent transaction disappeared"))?;
             return replay_credit(existing, &fingerprint, wallet.id);
         }
 
         let funding_account_code = format!("sandbox_funding:{}", wallet.currency);
-        let funding_account_id: Uuid = sqlx::query_scalar(
-            "SELECT id FROM ledger_accounts WHERE account_code = $1",
-        )
-        .bind(&funding_account_code)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|error| database_error("load sandbox funding account", error))?;
+        let funding_account_id: Uuid =
+            sqlx::query_scalar("SELECT id FROM ledger_accounts WHERE account_code = $1")
+                .bind(&funding_account_code)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(|error| database_error("load sandbox funding account", error))?;
 
         insert_entry(
             &mut transaction,
@@ -481,7 +470,9 @@ fn replay_credit(
     expected_fingerprint: &str,
     expected_wallet_id: Uuid,
 ) -> Result<SandboxCreditResponse, ApiError> {
-    if existing.request_fingerprint != expected_fingerprint || existing.wallet_id != expected_wallet_id {
+    if existing.request_fingerprint != expected_fingerprint
+        || existing.wallet_id != expected_wallet_id
+    {
         return Err(ApiError::conflict(
             "IDEMPOTENCY_CONFLICT",
             "Idempotency-Key was already used with a different sandbox credit request",

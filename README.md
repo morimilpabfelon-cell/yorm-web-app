@@ -5,9 +5,8 @@ Repositorio oficial para construir desde cero el software real de **Yorm Pay**.
 ## Estado
 
 ```text
-FOUNDATION 1B — IN PROGRESS
+FOUNDATION 2A — IN PROGRESS
 SANDBOX ONLY
-POSTGRESQL IDENTITY PERSISTENCE
 REAL MONEY DISABLED
 ```
 
@@ -66,9 +65,12 @@ cargo run -p yorm-api
 API local:
 
 ```text
-GET http://127.0.0.1:8787/health
-GET http://127.0.0.1:8787/health/database
-GET http://127.0.0.1:8787/v1/system/status
+GET  http://127.0.0.1:8787/health
+GET  http://127.0.0.1:8787/health/database
+GET  http://127.0.0.1:8787/v1/system/status
+POST http://127.0.0.1:8787/v1/me/wallet
+GET  http://127.0.0.1:8787/v1/me/wallet
+POST http://127.0.0.1:8787/v1/sandbox/wallet/credits
 ```
 
 Validación de persistencia en Windows:
@@ -99,4 +101,4 @@ expiración y revocación
 - Sin tokens Bearer ni PIN en texto plano dentro de PostgreSQL.
 - Sin afirmaciones de producción.
 
-Tracks #5.
+Tracks #7.

@@ -18,7 +18,8 @@ use crate::{
     error::ApiError,
     model::{
         CreateIdentityRequest, CreateSessionRequest, IdentityView, PayLimitsResponse, PinRequest,
-        PinVerificationResponse, SessionResponse,
+        PinVerificationResponse, SandboxCreditRequest, SandboxCreditResponse, SessionResponse,
+        WalletView,
     },
     store::{AuthenticatedIdentity, SandboxStore, epoch_seconds},
 };
@@ -85,6 +86,8 @@ fn app_with_store(store: SandboxStore) -> Router {
         .route("/v1/me/pin", put(set_pin))
         .route("/v1/me/pin/verify", post(verify_pin))
         .route("/v1/me/limits", get(get_limits))
+        .route("/v1/me/wallet", post(create_wallet).get(get_wallet))
+        .route("/v1/sandbox/wallet/credits", post(credit_wallet))
         .route("/v1/me/session", delete(delete_session))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -178,6 +181,51 @@ async fn get_limits(
     )))
 }
 
+async fn create_wallet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<(StatusCode, Json<WalletView>), ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    let wallet = state
+        .store
+        .create_wallet(identity.id, epoch_seconds())
+        .await?;
+    Ok((StatusCode::CREATED, Json(wallet)))
+}
+
+async fn get_wallet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<WalletView>, ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    Ok(Json(state.store.get_wallet(identity.id).await?))
+}
+
+async fn credit_wallet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<SandboxCreditRequest>,
+) -> Result<(StatusCode, Json<SandboxCreditResponse>), ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    if !identity.view.pin_configured {
+        return Err(ApiError::conflict(
+            "PIN_REQUIRED",
+            "configure Pay Safe PIN before using sandbox wallet credits",
+        ));
+    }
+    let key = idempotency_key(&headers)?;
+    let credit = state
+        .store
+        .credit_wallet(
+            identity.id,
+            key,
+            &request.amount_minor_units,
+            epoch_seconds(),
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(credit)))
+}
+
 async fn delete_session(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -195,6 +243,24 @@ async fn authenticate(
         .store
         .authenticate(bearer_token(headers)?, epoch_seconds())
         .await
+}
+
+fn idempotency_key(headers: &HeaderMap) -> Result<&str, ApiError> {
+    headers
+        .get("idempotency-key")
+        .ok_or_else(|| {
+            ApiError::bad_request(
+                "IDEMPOTENCY_KEY_REQUIRED",
+                "Idempotency-Key header is required",
+            )
+        })?
+        .to_str()
+        .map_err(|_| {
+            ApiError::bad_request(
+                "IDEMPOTENCY_KEY_INVALID",
+                "Idempotency-Key header must contain visible text",
+            )
+        })
 }
 
 fn bearer_token(headers: &HeaderMap) -> Result<&str, ApiError> {
