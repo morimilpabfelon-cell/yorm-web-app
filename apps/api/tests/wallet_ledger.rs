@@ -213,12 +213,10 @@ async fn wallet_credit_is_balanced_immutable_and_idempotent() {
     .await;
     assert!(immutable_entry_result.is_err());
 
-    let immutable_transaction_result = sqlx::query(
-        "DELETE FROM ledger_transactions WHERE id = $1",
-    )
-    .bind(transaction_id)
-    .execute(&database_pool)
-    .await;
+    let immutable_transaction_result = sqlx::query("DELETE FROM ledger_transactions WHERE id = $1")
+        .bind(transaction_id)
+        .execute(&database_pool)
+        .await;
     assert!(immutable_transaction_result.is_err());
 
     let funding_account_id: Uuid = sqlx::query_scalar(
