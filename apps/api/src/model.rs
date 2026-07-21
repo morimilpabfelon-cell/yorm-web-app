@@ -54,3 +54,28 @@ pub struct PayLimitsResponse {
     pub transfers_enabled: bool,
     pub kyc_tier: &'static str,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WalletView {
+    pub id: Uuid,
+    pub identity_id: Uuid,
+    pub currency: String,
+    pub balance_minor_units: String,
+    pub created_at_epoch_seconds: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SandboxCreditRequest {
+    pub amount_minor_units: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SandboxCreditResponse {
+    pub transaction_id: Uuid,
+    pub wallet_id: Uuid,
+    pub transaction_kind: String,
+    pub currency: String,
+    pub amount_minor_units: String,
+    pub balance_after_minor_units: String,
+    pub posted_at_epoch_seconds: u64,
+}

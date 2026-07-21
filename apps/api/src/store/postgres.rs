@@ -51,6 +51,10 @@ struct PinStateRow {
 }
 
 impl PostgresStore {
+    pub(super) fn pool(&self) -> PgPool {
+        self.pool.clone()
+    }
+
     pub(super) async fn connect(database_url: &str) -> Result<Self, sqlx::Error> {
         let pool = PgPoolOptions::new()
             .max_connections(10)

@@ -1,3 +1,4 @@
+mod ledger;
 mod postgres;
 
 use std::{
@@ -14,10 +15,13 @@ use uuid::Uuid;
 
 use crate::{
     error::ApiError,
-    model::{IdentityView, PayLimitsResponse, PinVerificationResponse, SessionResponse},
+    model::{
+        IdentityView, PayLimitsResponse, PinVerificationResponse, SandboxCreditResponse,
+        SessionResponse, WalletView,
+    },
 };
 
-use self::postgres::PostgresStore;
+use self::{ledger::LedgerStore, postgres::PostgresStore};
 
 pub(super) const SESSION_TTL_SECONDS: u64 = 60 * 60;
 pub(super) const MAX_PIN_ATTEMPTS: u8 = 5;
@@ -31,7 +35,10 @@ pub struct SandboxStore {
 #[derive(Clone)]
 enum StoreBackend {
     Memory(Arc<MemoryStore>),
-    Postgres(PostgresStore),
+    Postgres {
+        identity: PostgresStore,
+        ledger: LedgerStore,
+    },
 }
 
 #[derive(Default)]
@@ -80,22 +87,26 @@ impl Default for SandboxStore {
 
 impl SandboxStore {
     pub async fn connect_postgres(database_url: &str) -> Result<Self, sqlx::Error> {
+        let identity = PostgresStore::connect(database_url).await?;
+        let ledger = LedgerStore::new(identity.pool());
         Ok(Self {
-            backend: StoreBackend::Postgres(PostgresStore::connect(database_url).await?),
+            backend: StoreBackend::Postgres { identity, ledger },
         })
     }
 
     pub fn backend_name(&self) -> &'static str {
         match &self.backend {
             StoreBackend::Memory(_) => "memory",
-            StoreBackend::Postgres(_) => "postgres",
+            StoreBackend::Postgres { .. } => "postgres",
         }
     }
 
     pub async fn database_health(&self) -> Result<(), ApiError> {
         match &self.backend {
             StoreBackend::Memory(_) => Ok(()),
-            StoreBackend::Postgres(store) => store.health().await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.health().await,
         }
     }
 
@@ -110,7 +121,9 @@ impl SandboxStore {
             StoreBackend::Memory(store) => {
                 store.register_identity(email, display_name, country_code, now)
             }
-            StoreBackend::Postgres(store) => {
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => {
                 store
                     .register_identity(email, display_name, country_code, now)
                     .await
@@ -125,7 +138,9 @@ impl SandboxStore {
     ) -> Result<SessionResponse, ApiError> {
         match &self.backend {
             StoreBackend::Memory(store) => store.create_session(identity_id, now),
-            StoreBackend::Postgres(store) => store.create_session(identity_id, now).await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.create_session(identity_id, now).await,
         }
     }
 
@@ -136,21 +151,27 @@ impl SandboxStore {
     ) -> Result<AuthenticatedIdentity, ApiError> {
         match &self.backend {
             StoreBackend::Memory(store) => store.authenticate(access_token, now),
-            StoreBackend::Postgres(store) => store.authenticate(access_token, now).await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.authenticate(access_token, now).await,
         }
     }
 
     pub async fn revoke_session(&self, access_token: &str, now: u64) -> Result<(), ApiError> {
         match &self.backend {
             StoreBackend::Memory(store) => store.revoke_session(access_token, now),
-            StoreBackend::Postgres(store) => store.revoke_session(access_token, now).await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.revoke_session(access_token, now).await,
         }
     }
 
     pub async fn set_pin(&self, identity_id: Uuid, pin: &str) -> Result<(), ApiError> {
         match &self.backend {
             StoreBackend::Memory(store) => store.set_pin(identity_id, pin),
-            StoreBackend::Postgres(store) => store.set_pin(identity_id, pin).await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.set_pin(identity_id, pin).await,
         }
     }
 
@@ -162,7 +183,49 @@ impl SandboxStore {
     ) -> Result<PinVerificationResponse, ApiError> {
         match &self.backend {
             StoreBackend::Memory(store) => store.verify_pin(identity_id, pin, now),
-            StoreBackend::Postgres(store) => store.verify_pin(identity_id, pin, now).await,
+            StoreBackend::Postgres {
+                identity: store, ..
+            } => store.verify_pin(identity_id, pin, now).await,
+        }
+    }
+
+    pub async fn create_wallet(&self, identity_id: Uuid, now: u64) -> Result<WalletView, ApiError> {
+        match &self.backend {
+            StoreBackend::Memory(_) => Err(ApiError::service_unavailable(
+                "DATABASE_REQUIRED",
+                "wallet operations require the PostgreSQL sandbox backend",
+            )),
+            StoreBackend::Postgres { ledger, .. } => ledger.create_wallet(identity_id, now).await,
+        }
+    }
+
+    pub async fn get_wallet(&self, identity_id: Uuid) -> Result<WalletView, ApiError> {
+        match &self.backend {
+            StoreBackend::Memory(_) => Err(ApiError::service_unavailable(
+                "DATABASE_REQUIRED",
+                "wallet operations require the PostgreSQL sandbox backend",
+            )),
+            StoreBackend::Postgres { ledger, .. } => ledger.get_wallet(identity_id).await,
+        }
+    }
+
+    pub async fn credit_wallet(
+        &self,
+        identity_id: Uuid,
+        idempotency_key: &str,
+        amount_minor_units: &str,
+        now: u64,
+    ) -> Result<SandboxCreditResponse, ApiError> {
+        match &self.backend {
+            StoreBackend::Memory(_) => Err(ApiError::service_unavailable(
+                "DATABASE_REQUIRED",
+                "wallet operations require the PostgreSQL sandbox backend",
+            )),
+            StoreBackend::Postgres { ledger, .. } => {
+                ledger
+                    .credit_wallet(identity_id, idempotency_key, amount_minor_units, now)
+                    .await
+            }
         }
     }
 

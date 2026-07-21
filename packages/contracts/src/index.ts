@@ -85,6 +85,28 @@ export interface PayLimitsResponse {
   readonly kyc_tier: 'sandbox_unverified';
 }
 
+export interface WalletView {
+  readonly id: string;
+  readonly identity_id: string;
+  readonly currency: string;
+  readonly balance_minor_units: string;
+  readonly created_at_epoch_seconds: number;
+}
+
+export interface SandboxCreditRequest {
+  readonly amount_minor_units: string;
+}
+
+export interface SandboxCreditResponse {
+  readonly transaction_id: string;
+  readonly wallet_id: string;
+  readonly transaction_kind: 'sandbox_credit';
+  readonly currency: string;
+  readonly amount_minor_units: string;
+  readonly balance_after_minor_units: string;
+  readonly posted_at_epoch_seconds: number;
+}
+
 export interface ApiErrorResponse {
   readonly error: {
     readonly code: string;
