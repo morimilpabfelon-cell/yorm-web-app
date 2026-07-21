@@ -5,7 +5,7 @@ Repositorio oficial para construir desde cero el software real de **Yorm Pay**.
 ## Estado
 
 ```text
-FOUNDATION 2A — IN PROGRESS
+FOUNDATION 2B — IN PROGRESS
 SANDBOX ONLY
 REAL MONEY DISABLED
 ```
@@ -65,22 +65,24 @@ cargo run -p yorm-api
 API local:
 
 ```text
-GET  http://127.0.0.1:8787/health
-GET  http://127.0.0.1:8787/health/database
-GET  http://127.0.0.1:8787/v1/system/status
-POST http://127.0.0.1:8787/v1/me/wallet
-GET  http://127.0.0.1:8787/v1/me/wallet
-POST http://127.0.0.1:8787/v1/sandbox/wallet/credits
+GET    http://127.0.0.1:8787/health
+GET    http://127.0.0.1:8787/health/database
+GET    http://127.0.0.1:8787/v1/system/status
+POST   http://127.0.0.1:8787/v1/me/wallet
+GET    http://127.0.0.1:8787/v1/me/wallet
+POST   http://127.0.0.1:8787/v1/sandbox/wallet/credits
+POST   http://127.0.0.1:8787/v1/sandbox/transfers
+DELETE http://127.0.0.1:8787/v1/me/session
 ```
 
-Validación de persistencia en Windows:
+Validación integral de Foundation 2B en Windows:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\test-postgres-identity-persistence.ps1
+.\scripts\test-p2p-transfer-sandbox.ps1
 ```
 
-## Persistencia permitida en Foundation 1B
+## Persistencia sandbox
 
 ```text
 sandbox_identities
@@ -88,17 +90,33 @@ sandbox_sessions
 PIN Argon2
 contador y bloqueo de PIN
 digest SHA-256 de sesión
-expiración y revocación
+sandbox_wallets
+ledger_accounts
+ledger_transactions
+ledger_entries
+sandbox_p2p_transfers
 ```
+
+## Invariantes financieras
+
+- Todos los montos usan unidades menores enteras; nunca `float`.
+- Los saldos se derivan de asientos y no tienen columna mutable.
+- Cada transacción confirmada mantiene débitos iguales a créditos.
+- Los asientos, transacciones y metadatos P2P son inmutables.
+- Los créditos y transferencias exigen `Idempotency-Key`.
+- Las transferencias bloquean las dos wallets en orden determinista.
+- Saldo insuficiente no crea transacciones ni asientos parciales.
+- Autoenvíos y transferencias entre monedas distintas se rechazan.
 
 ## Seguridad
 
 - Sin dinero real.
 - Sin proveedores externos activos.
 - Sin KYC/AML en vivo.
-- Sin wallet, saldos o ledger.
-- Sin transferencias ni pagos.
+- Sin bancos, depósitos o retiros externos.
+- Sin pagos a comercios.
+- Sin tarjetas ni conversión de divisas.
 - Sin tokens Bearer ni PIN en texto plano dentro de PostgreSQL.
 - Sin afirmaciones de producción.
 
-Tracks #7.
+Tracks #9.
