@@ -422,9 +422,7 @@ fn from_database_epoch(value: i64) -> Result<u64, ApiError> {
 
 fn is_unique_violation(error: &sqlx::Error) -> bool {
     match error {
-        sqlx::Error::Database(database_error) => {
-            database_error.code().as_deref() == Some("23505")
-        }
+        sqlx::Error::Database(database_error) => database_error.code().as_deref() == Some("23505"),
         _ => false,
     }
 }
