@@ -6,7 +6,7 @@ CREATE TABLE ledger_accounts (
     currency CHAR(3) NOT NULL,
     created_at_epoch_seconds BIGINT NOT NULL,
     CONSTRAINT ledger_accounts_code_format
-        CHECK (account_code ~ '^[a-z0-9:_-]{3,160}$'),
+        CHECK (account_code ~ '^[A-Za-z0-9:_-]{3,160}$'),
     CONSTRAINT ledger_accounts_class
         CHECK (account_class IN ('asset', 'liability')),
     CONSTRAINT ledger_accounts_normal_side
