@@ -562,15 +562,16 @@ mod tests {
         let StoreBackend::Memory(memory) = &store.backend else {
             panic!("unit test must use memory backend");
         };
-        let data = memory.inner.read().expect("store should be readable");
-        let record = data
-            .identities
-            .get(&identity.id)
-            .expect("identity should exist");
-        let stored_hash = record.pin_hash.as_deref().expect("hash should exist");
+        let stored_hash = {
+            let data = memory.inner.read().expect("store should be readable");
+            let record = data
+                .identities
+                .get(&identity.id)
+                .expect("identity should exist");
+            record.pin_hash.clone().expect("hash should exist")
+        };
         assert_ne!(stored_hash, "4096");
         assert!(stored_hash.starts_with("$argon2"));
-        drop(data);
 
         let response = store
             .verify_pin(identity.id, "4096", 101)

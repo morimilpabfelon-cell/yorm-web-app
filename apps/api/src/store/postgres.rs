@@ -115,7 +115,7 @@ impl PostgresStore {
         .await;
 
         match result {
-            Ok(row) => row.to_view(),
+            Ok(row) => row.into_view(),
             Err(error) if is_unique_violation(&error) => Err(ApiError::conflict(
                 "IDENTITY_ALREADY_EXISTS",
                 "an identity with this email already exists",
@@ -400,7 +400,7 @@ impl PostgresStore {
 }
 
 impl IdentityRow {
-    fn to_view(self) -> Result<IdentityView, ApiError> {
+    fn into_view(self) -> Result<IdentityView, ApiError> {
         Ok(IdentityView {
             id: self.id,
             email: self.email,
