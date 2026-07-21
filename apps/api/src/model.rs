@@ -79,3 +79,22 @@ pub struct SandboxCreditResponse {
     pub balance_after_minor_units: String,
     pub posted_at_epoch_seconds: u64,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SandboxTransferRequest {
+    pub recipient_identity_id: Uuid,
+    pub amount_minor_units: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SandboxTransferResponse {
+    pub transaction_id: Uuid,
+    pub transaction_kind: String,
+    pub sender_wallet_id: Uuid,
+    pub recipient_wallet_id: Uuid,
+    pub currency: String,
+    pub amount_minor_units: String,
+    pub sender_balance_after_minor_units: String,
+    pub recipient_balance_after_minor_units: String,
+    pub posted_at_epoch_seconds: u64,
+}
