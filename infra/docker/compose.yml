@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: yorm_pay
+      POSTGRES_USER: yorm
+      POSTGRES_PASSWORD: yorm_local_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - yorm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yorm -d yorm_pay"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  yorm_postgres_data:

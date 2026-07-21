@@ -1,0 +1,27 @@
+# Node
+node_modules/
+dist/
+.next/
+.expo/
+
+# Rust
+target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage
+coverage/
