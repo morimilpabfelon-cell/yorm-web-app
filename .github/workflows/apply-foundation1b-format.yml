@@ -1,0 +1,40 @@
+name: Apply Foundation 1B formatting
+
+on:
+  push:
+    branches:
+      - foundation/postgres-identity-v1
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/postgres-identity-v1
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply rustfmt
+        run: cargo fmt --all
+
+      - name: Commit canonical formatting
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-foundation1b-format.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "style: format PostgreSQL integration tests"
+          git push origin HEAD:foundation/postgres-identity-v1
