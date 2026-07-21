@@ -87,23 +87,21 @@ async fn identity_session_pin_lock_and_revocation_survive_router_recreation() {
     .await;
     assert_eq!(set_pin_response.status(), StatusCode::NO_CONTENT);
 
-    let stored_pin_hash: String = sqlx::query_scalar(
-        "SELECT pin_hash FROM sandbox_identities WHERE id = $1",
-    )
-    .bind(identity_id)
-    .fetch_one(&database_pool)
-    .await
-    .expect("PIN hash should be persisted");
+    let stored_pin_hash: String =
+        sqlx::query_scalar("SELECT pin_hash FROM sandbox_identities WHERE id = $1")
+            .bind(identity_id)
+            .fetch_one(&database_pool)
+            .await
+            .expect("PIN hash should be persisted");
     assert_ne!(stored_pin_hash, "4096");
     assert!(stored_pin_hash.starts_with("$argon2"));
 
-    let stored_token_digest: String = sqlx::query_scalar(
-        "SELECT token_digest FROM sandbox_sessions WHERE identity_id = $1",
-    )
-    .bind(identity_id)
-    .fetch_one(&database_pool)
-    .await
-    .expect("session digest should be persisted");
+    let stored_token_digest: String =
+        sqlx::query_scalar("SELECT token_digest FROM sandbox_sessions WHERE identity_id = $1")
+            .bind(identity_id)
+            .fetch_one(&database_pool)
+            .await
+            .expect("session digest should be persisted");
     assert_ne!(stored_token_digest, access_token);
     assert!(stored_token_digest.len() >= 40);
 
