@@ -17,6 +17,8 @@
 - Todo monto futuro debe representarse en unidades menores enteras y con moneda explícita.
 - Toda operación financiera futura debe ser atómica, idempotente y auditable.
 - Cambios mobile nativos requieren issue y revisión separada.
+- Foundation 1A usa almacenamiento en memoria; no presentar identidades o sesiones como persistentes.
+- No registrar PIN, tokens Bearer ni hashes de sesión en logs.
 
 ## Nomenclatura de producto
 
@@ -57,8 +59,10 @@ Black  #000000
 ## Gate actual
 
 ```text
-Issue #1
-Foundation 0
-Riesgo R2
+Issue #3
+Foundation 1A
+Identidad sandbox + sesiones + PIN + Pay Safe + Pay Limits
+Riesgo R2.5
 Sandbox only
+Sin wallet, ledger, saldo ni pagos
 ```
