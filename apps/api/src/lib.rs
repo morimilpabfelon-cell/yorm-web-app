@@ -156,7 +156,9 @@ async fn delete_session(
 }
 
 fn authenticate(headers: &HeaderMap, state: &AppState) -> Result<AuthenticatedIdentity, ApiError> {
-    state.store.authenticate(bearer_token(headers)?, epoch_seconds())
+    state
+        .store
+        .authenticate(bearer_token(headers)?, epoch_seconds())
 }
 
 fn bearer_token(headers: &HeaderMap) -> Result<&str, ApiError> {

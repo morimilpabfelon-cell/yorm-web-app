@@ -4,10 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use argon2::{
-    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
-    password_hash::SaltString,
-};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand_core::{OsRng, RngCore};
 use sha2::{Digest, Sha256};
@@ -99,11 +96,7 @@ impl SandboxStore {
         Ok(view)
     }
 
-    pub fn create_session(
-        &self,
-        identity_id: Uuid,
-        now: u64,
-    ) -> Result<SessionResponse, ApiError> {
+    pub fn create_session(&self, identity_id: Uuid, now: u64) -> Result<SessionResponse, ApiError> {
         let mut token_bytes = [0_u8; 32];
         let mut rng = OsRng;
         rng.fill_bytes(&mut token_bytes);
@@ -203,9 +196,10 @@ impl SandboxStore {
             .inner
             .write()
             .map_err(|_| ApiError::internal("identity store lock poisoned"))?;
-        let identity = data.identities.get_mut(&identity_id).ok_or_else(|| {
-            ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist")
-        })?;
+        let identity = data
+            .identities
+            .get_mut(&identity_id)
+            .ok_or_else(|| ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist"))?;
 
         identity.pin_hash = Some(pin_hash);
         identity.pin_failed_attempts = 0;
@@ -231,9 +225,10 @@ impl SandboxStore {
             .inner
             .write()
             .map_err(|_| ApiError::internal("identity store lock poisoned"))?;
-        let identity = data.identities.get_mut(&identity_id).ok_or_else(|| {
-            ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist")
-        })?;
+        let identity = data
+            .identities
+            .get_mut(&identity_id)
+            .ok_or_else(|| ApiError::not_found("IDENTITY_NOT_FOUND", "identity does not exist"))?;
 
         if let Some(locked_until) = identity.pin_locked_until_epoch_seconds {
             if now < locked_until {
@@ -274,7 +269,9 @@ impl SandboxStore {
             identity.pin_locked_until_epoch_seconds = Some(locked_until);
             return Err(ApiError::locked(
                 "PIN_LOCKED",
-                format!("too many failed attempts; PIN is locked until epoch second {locked_until}"),
+                format!(
+                    "too many failed attempts; PIN is locked until epoch second {locked_until}"
+                ),
             ));
         }
 
@@ -289,12 +286,7 @@ impl SandboxStore {
             "PE" => ("PEN", 100_000_u64, 300_000_u64, 1_500_000_u64),
             "BR" => ("BRL", 100_000_u64, 300_000_u64, 1_500_000_u64),
             "MX" => ("MXN", 500_000_u64, 1_500_000_u64, 7_500_000_u64),
-            "CO" => (
-                "COP",
-                100_000_000_u64,
-                300_000_000_u64,
-                1_500_000_000_u64,
-            ),
+            "CO" => ("COP", 100_000_000_u64, 300_000_000_u64, 1_500_000_000_u64),
             _ => ("USD", 25_000_u64, 75_000_u64, 375_000_u64),
         };
 
@@ -441,7 +433,11 @@ mod tests {
             .expect("PIN should be configured");
 
         for attempt in 0..5 {
-            assert!(store.verify_pin(identity.id, "9876", 200 + attempt).is_err());
+            assert!(
+                store
+                    .verify_pin(identity.id, "9876", 200 + attempt)
+                    .is_err()
+            );
         }
 
         let data = store.inner.read().expect("store should be readable");

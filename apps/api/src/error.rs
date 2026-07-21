@@ -42,11 +42,7 @@ impl ApiError {
     }
 
     pub fn internal(message: impl Into<String>) -> Self {
-        Self::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "INTERNAL_ERROR",
-            message,
-        )
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", message)
     }
 
     fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
