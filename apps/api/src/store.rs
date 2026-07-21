@@ -86,7 +86,7 @@ impl SandboxStore {
     }
 
     pub fn backend_name(&self) -> &'static str {
-        match self.backend {
+        match &self.backend {
             StoreBackend::Memory(_) => "memory",
             StoreBackend::Postgres(_) => "postgres",
         }
@@ -274,9 +274,9 @@ impl MemoryStore {
         now: u64,
     ) -> Result<AuthenticatedIdentity, ApiError> {
         let token_digest = digest_token(access_token);
-        let mut data = self
+        let data = self
             .inner
-            .write()
+            .read()
             .map_err(|_| ApiError::internal("session store lock poisoned"))?;
 
         let session = data.sessions.get(&token_digest).cloned().ok_or_else(|| {
