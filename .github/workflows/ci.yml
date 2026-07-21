@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - foundation/monorepo-v0
 
 permissions:
   contents: read
@@ -23,7 +22,7 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.34.5 --activate
       - name: Install
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: pnpm typecheck
       - name: Build
@@ -31,6 +30,22 @@ jobs:
 
   rust:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: yorm_pay_test
+          POSTGRES_USER: yorm
+          POSTGRES_PASSWORD: yorm_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yorm -d yorm_pay_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://yorm:yorm_test_only@127.0.0.1:5432/yorm_pay_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
