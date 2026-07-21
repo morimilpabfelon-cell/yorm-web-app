@@ -17,8 +17,9 @@
 - Todo monto futuro debe representarse en unidades menores enteras y con moneda explícita.
 - Toda operación financiera futura debe ser atómica, idempotente y auditable.
 - Cambios mobile nativos requieren issue y revisión separada.
-- Foundation 1A usa almacenamiento en memoria; no presentar identidades o sesiones como persistentes.
-- No registrar PIN, tokens Bearer ni hashes de sesión en logs.
+- Foundation 1B persiste únicamente identidad sandbox, sesiones, PIN y bloqueos en PostgreSQL.
+- No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión ni `DATABASE_URL` en logs.
+- La base de datos de Foundation 1B no puede incorporar tablas de wallet, saldos, ledger o pagos.
 
 ## Nomenclatura de producto
 
@@ -59,10 +60,10 @@ Black  #000000
 ## Gate actual
 
 ```text
-Issue #3
-Foundation 1A
-Identidad sandbox + sesiones + PIN + Pay Safe + Pay Limits
-Riesgo R2.5
+Issue #5
+Foundation 1B
+Persistencia PostgreSQL de identidad + sesiones + PIN + bloqueos
+Riesgo R2.8
 Sandbox only
-Sin wallet, ledger, saldo ni pagos
+Sin wallet, ledger, saldo, transferencias ni pagos
 ```
