@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          cargo test --test wallet_ledger -- --nocapture > foundation2a-test.txt 2>&1
+          cargo test --test wallet_creation_debug -- --nocapture > foundation2a-test.txt 2>&1
           status=$?
           printf '\nexit_status=%s\n' "$status" >> foundation2a-test.txt
           exit 0
@@ -54,5 +54,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add foundation2a-test.txt
-          git commit -m "chore: capture Foundation 2A test diagnostic"
+          git commit -m "chore: isolate Foundation 2A wallet creation error"
           git push origin HEAD:foundation/wallet-ledger-v1
