@@ -7,83 +7,9 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-foundation2a-integration:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.head_ref == 'foundation/wallet-ledger-v1' &&
-      github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source branch
-        uses: actions/checkout@v4
-        with:
-          ref: foundation/wallet-ledger-v1
-          fetch-depth: 0
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: Normalize documentation baseline
-        shell: python
-        run: |
-          from pathlib import Path
-
-          readme_path = Path("README.md")
-          readme = readme_path.read_text()
-          readme = readme.replace(
-              """FOUNDATION 1B — IN PROGRESS
-          SANDBOX ONLY
-          POSTGRESQL IDENTITY PERSISTENCE
-          REAL MONEY DISABLED""",
-              """FOUNDATION 0 — IN PROGRESS
-          SANDBOX ONLY
-          REAL MONEY DISABLED""",
-          )
-          readme = readme.replace(
-              """GET http://127.0.0.1:8787/health
-          GET http://127.0.0.1:8787/health/database
-          GET http://127.0.0.1:8787/v1/system/status""",
-              """GET http://127.0.0.1:8787/health
-          GET http://127.0.0.1:8787/v1/system/status""",
-          )
-          readme = readme.replace("Tracks #5.", "Tracks #1.")
-          readme_path.write_text(readme)
-      - name: Apply integration patch
-        run: python scripts/apply_foundation2a_patch.py
-      - name: Finalize Foundation 2A documentation
-        shell: python
-        run: |
-          from pathlib import Path
-
-          agents_path = Path("AGENTS.md")
-          agents = agents_path.read_text()
-          agents = agents.replace(
-              """- Foundation 1B persiste únicamente identidad sandbox, sesiones, PIN y bloqueos en PostgreSQL.
-          - No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión ni `DATABASE_URL` en logs.
-          - La base de datos de Foundation 1B no puede incorporar tablas de wallet, saldos, ledger o pagos.""",
-              """- La ejecución normal usa PostgreSQL; el backend en memoria existe solo para pruebas unitarias rápidas.
-          - No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión, claves idempotentes ni `DATABASE_URL` en logs.
-          - Wallet y ledger solo pueden operar en sandbox dentro del Issue #7.
-          - Transacciones y asientos posteados son inmutables y todo saldo se deriva del ledger.""",
-          )
-          agents_path.write_text(agents)
-      - name: Format Rust
-        run: cargo fmt --all
-      - name: Commit integration
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm scripts/apply_foundation2a_patch.py
-          rm -f foundation2a-patch.log
-          git add AGENTS.md README.md apps/api/src packages/contracts/src/index.ts
-          git diff --cached --check
-          git commit -m "feat: integrate Foundation 2A wallet API"
-          git push origin HEAD:foundation/wallet-ledger-v1
-
   typescript:
     runs-on: ubuntu-latest
     steps:
