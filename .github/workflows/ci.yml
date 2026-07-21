@@ -26,32 +26,50 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Align patch with Foundation 1B baseline
+      - name: Normalize documentation baseline
         shell: python
         run: |
           from pathlib import Path
 
-          path = Path("scripts/apply_foundation2a_patch.py")
-          text = path.read_text()
-          text = text.replace(
-              "FOUNDATION 0 — IN PROGRESS\\nSANDBOX ONLY\\nREAL MONEY DISABLED",
-              "FOUNDATION 1B — IN PROGRESS\\nSANDBOX ONLY\\nPOSTGRESQL IDENTITY PERSISTENCE\\nREAL MONEY DISABLED",
+          readme_path = Path("README.md")
+          readme = readme_path.read_text()
+          readme = readme.replace(
+              """FOUNDATION 1B — IN PROGRESS
+          SANDBOX ONLY
+          POSTGRESQL IDENTITY PERSISTENCE
+          REAL MONEY DISABLED""",
+              """FOUNDATION 0 — IN PROGRESS
+          SANDBOX ONLY
+          REAL MONEY DISABLED""",
           )
-          text = text.replace(
-              "GET http://127.0.0.1:8787/health\\nGET http://127.0.0.1:8787/v1/system/status",
-              "GET http://127.0.0.1:8787/health\\nGET http://127.0.0.1:8787/health/database\\nGET http://127.0.0.1:8787/v1/system/status",
+          readme = readme.replace(
+              """GET http://127.0.0.1:8787/health
+          GET http://127.0.0.1:8787/health/database
+          GET http://127.0.0.1:8787/v1/system/status""",
+              """GET http://127.0.0.1:8787/health
+          GET http://127.0.0.1:8787/v1/system/status""",
           )
-          text = text.replace(
-              'agents = agents.replace(\n    "- Foundation 1A usa almacenamiento en memoria; no presentar identidades o sesiones como persistentes.",\n    "- La ejecución normal usa PostgreSQL; el backend en memoria existe solo para pruebas unitarias rápidas.",\n)',
-              'agents = agents.replace(\n    "- Foundation 1B persiste únicamente identidad sandbox, sesiones, PIN y bloqueos en PostgreSQL.\\n- No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión ni `DATABASE_URL` en logs.\\n- La base de datos de Foundation 1B no puede incorporar tablas de wallet, saldos, ledger o pagos.",\n    "- La ejecución normal usa PostgreSQL; el backend en memoria existe solo para pruebas unitarias rápidas.\\n- No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión, claves idempotentes ni `DATABASE_URL` en logs.\\n- Wallet y ledger solo pueden operar en sandbox dentro del Issue #7.\\n- Transacciones y asientos posteados son inmutables y todo saldo se deriva del ledger.",\n)',
-          )
-          text = text.replace(
-              'readme = readme.replace("Tracks #1.", "Tracks #7.")',
-              'readme = readme.replace("Tracks #5.", "Tracks #7.")',
-          )
-          path.write_text(text)
+          readme = readme.replace("Tracks #5.", "Tracks #1.")
+          readme_path.write_text(readme)
       - name: Apply integration patch
         run: python scripts/apply_foundation2a_patch.py
+      - name: Finalize Foundation 2A documentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          agents_path = Path("AGENTS.md")
+          agents = agents_path.read_text()
+          agents = agents.replace(
+              """- Foundation 1B persiste únicamente identidad sandbox, sesiones, PIN y bloqueos en PostgreSQL.
+          - No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión ni `DATABASE_URL` en logs.
+          - La base de datos de Foundation 1B no puede incorporar tablas de wallet, saldos, ledger o pagos.""",
+              """- La ejecución normal usa PostgreSQL; el backend en memoria existe solo para pruebas unitarias rápidas.
+          - No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión, claves idempotentes ni `DATABASE_URL` en logs.
+          - Wallet y ledger solo pueden operar en sandbox dentro del Issue #7.
+          - Transacciones y asientos posteados son inmutables y todo saldo se deriva del ledger.""",
+          )
+          agents_path.write_text(agents)
       - name: Format Rust
         run: cargo fmt --all
       - name: Commit integration
