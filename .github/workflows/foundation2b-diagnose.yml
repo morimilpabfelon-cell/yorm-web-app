@@ -1,4 +1,4 @@
-name: Foundation 2B diagnostic
+name: Foundation 2B fix
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  fix:
     if: >-
       github.head_ref == 'foundation/p2p-transfer-v1' &&
       github.actor != 'github-actions[bot]'
@@ -37,20 +37,44 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
-      - name: Capture Clippy
+          components: rustfmt,clippy
+      - name: Fix concurrent key lifetimes
         shell: bash
         run: |
-          set +e
-          cargo clippy --workspace --all-targets --all-features -- -D warnings > foundation2b-clippy.txt 2>&1
-          status=$?
-          printf '\nexit_status=%s\n' "$status" >> foundation2b-clippy.txt
-          exit 0
-      - name: Commit diagnostic
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/tests/p2p_transfers.rs')
+          text = path.read_text()
+          marker = '    let first_request = request(\n'
+          replacement = (
+              '    let first_transfer_key = unique_key("concurrent-one");\n'
+              '    let second_transfer_key = unique_key("concurrent-two");\n\n'
+              '    let first_request = request(\n'
+          )
+          if marker not in text:
+              raise SystemExit('first request marker not found')
+          text = text.replace(marker, replacement, 1)
+          text = text.replace(
+              'Some(&unique_key("concurrent-one"))',
+              'Some(&first_transfer_key)',
+              1,
+          )
+          text = text.replace(
+              'Some(&unique_key("concurrent-two"))',
+              'Some(&second_transfer_key)',
+              1,
+          )
+          path.write_text(text)
+          PY
+          rm -f foundation2b-clippy.txt
+          cargo fmt --all
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Commit fix
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add foundation2b-clippy.txt
-          git commit -m "chore: capture Foundation 2B Clippy diagnostic"
+          git add apps/api/tests/p2p_transfers.rs foundation2b-clippy.txt
+          git commit -m "test: fix Foundation 2B concurrent key lifetimes"
           git push origin HEAD:foundation/p2p-transfer-v1
