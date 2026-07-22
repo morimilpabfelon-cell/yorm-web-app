@@ -1,0 +1,56 @@
+name: Foundation 2B diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: >-
+      github.head_ref == 'foundation/p2p-transfer-v1' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: yorm_pay_test
+          POSTGRES_USER: yorm
+          POSTGRES_PASSWORD: yorm_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yorm -d yorm_pay_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://yorm:yorm_test_only@127.0.0.1:5432/yorm_pay_test?sslmode=disable
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/p2p-transfer-v1
+          fetch-depth: 0
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Capture Clippy
+        shell: bash
+        run: |
+          set +e
+          cargo clippy --workspace --all-targets --all-features -- -D warnings > foundation2b-clippy.txt 2>&1
+          status=$?
+          printf '\nexit_status=%s\n' "$status" >> foundation2b-clippy.txt
+          exit 0
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add foundation2b-clippy.txt
+          git commit -m "chore: capture Foundation 2B Clippy diagnostic"
+          git push origin HEAD:foundation/p2p-transfer-v1
