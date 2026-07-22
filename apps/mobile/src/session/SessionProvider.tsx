@@ -15,10 +15,10 @@ import {
   type SessionState,
 } from './state';
 
-interface SessionContextValue extends SessionState {
+type SessionContextValue = SessionState & {
   readonly signIn: (session: MobileSession) => Promise<void>;
   readonly clearSession: () => Promise<void>;
-}
+};
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
