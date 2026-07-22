@@ -35,7 +35,7 @@ jobs:
       - name: Generate official Expo SDK 57 template
         run: |
           rm -rf /tmp/yorm-mobile
-          npx --yes create-expo-app@latest /tmp/yorm-mobile --template default@sdk-57
+          npx --yes create-expo-app@latest /tmp/yorm-mobile --template default@sdk-57 --yes --no-install --no-agents-md
 
       - name: Apply Yorm Pay mobile implementation
         run: python .github/scripts/foundation3a_integrate.py /tmp/yorm-mobile
