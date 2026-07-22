@@ -371,7 +371,8 @@ impl LedgerStore {
             .await
             .map_err(|error| database_error("begin sandbox P2P transfer", error))?;
 
-        let (first_identity_id, second_identity_id) = if sender_identity_id < recipient_identity_id {
+        let (first_identity_id, second_identity_id) = if sender_identity_id < recipient_identity_id
+        {
             (sender_identity_id, recipient_identity_id)
         } else {
             (recipient_identity_id, sender_identity_id)
@@ -438,9 +439,10 @@ impl LedgerStore {
         let sender_balance_after = sender_balance.checked_sub(amount_minor).ok_or_else(|| {
             ApiError::internal("sender balance subtraction failed after sufficient-funds check")
         })?;
-        let recipient_balance_after = recipient_balance
-            .checked_add(amount_minor)
-            .ok_or_else(|| ApiError::bad_request("AMOUNT_OVERFLOW", "recipient balance overflow"))?;
+        let recipient_balance_after =
+            recipient_balance.checked_add(amount_minor).ok_or_else(|| {
+                ApiError::bad_request("AMOUNT_OVERFLOW", "recipient balance overflow")
+            })?;
         let transaction_id = Uuid::new_v4();
 
         let inserted_transaction_id = sqlx::query_scalar::<_, Uuid>(

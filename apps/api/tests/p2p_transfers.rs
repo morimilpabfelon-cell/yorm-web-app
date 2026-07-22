@@ -64,7 +64,10 @@ async fn p2p_transfer_is_atomic_idempotent_immutable_and_persistent() {
     let transfer_body = json_body(transfer).await;
     let transaction_id = uuid_field(&transfer_body, "transaction_id");
     assert_eq!(transfer_body["transaction_kind"], "sandbox_p2p_transfer");
-    assert_eq!(transfer_body["sender_wallet_id"], sender.wallet_id.to_string());
+    assert_eq!(
+        transfer_body["sender_wallet_id"],
+        sender.wallet_id.to_string()
+    );
     assert_eq!(
         transfer_body["recipient_wallet_id"],
         recipient.wallet_id.to_string()
@@ -72,10 +75,7 @@ async fn p2p_transfer_is_atomic_idempotent_immutable_and_persistent() {
     assert_eq!(transfer_body["currency"], "PEN");
     assert_eq!(transfer_body["amount_minor_units"], "750");
     assert_eq!(transfer_body["sender_balance_after_minor_units"], "1250");
-    assert_eq!(
-        transfer_body["recipient_balance_after_minor_units"],
-        "750"
-    );
+    assert_eq!(transfer_body["recipient_balance_after_minor_units"], "750");
 
     let replay = request(
         &app,
@@ -93,10 +93,7 @@ async fn p2p_transfer_is_atomic_idempotent_immutable_and_persistent() {
     let replay_body = json_body(replay).await;
     assert_eq!(replay_body["transaction_id"], transaction_id.to_string());
     assert_eq!(replay_body["sender_balance_after_minor_units"], "1250");
-    assert_eq!(
-        replay_body["recipient_balance_after_minor_units"],
-        "750"
-    );
+    assert_eq!(replay_body["recipient_balance_after_minor_units"], "750");
 
     let conflicting_replay = request(
         &app,
@@ -297,7 +294,10 @@ async fn concurrent_transfers_cannot_double_spend_sender_balance() {
     let first_balance = wallet_balance_value(&app, &first_recipient.access_token).await;
     let second_balance = wallet_balance_value(&app, &second_recipient.access_token).await;
     assert_eq!(first_balance + second_balance, 750);
-    assert!(matches!((first_balance, second_balance), (750, 0) | (0, 750)));
+    assert!(matches!(
+        (first_balance, second_balance),
+        (750, 0) | (0, 750)
+    ));
 
     let transfer_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*)::BIGINT FROM sandbox_p2p_transfers WHERE sender_wallet_id = $1",
