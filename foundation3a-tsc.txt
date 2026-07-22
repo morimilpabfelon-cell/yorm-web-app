@@ -8,7 +8,20 @@ packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
 packages/design-tokens typecheck: Done
 packages/contracts typecheck: Done
 apps/mobile typecheck$ tsc --noEmit
-apps/mobile typecheck: tsconfig.json(7,15): error TS5090: Non-relative paths are not allowed when 'baseUrl' is not set. Did you forget a leading './'?
+apps/mobile typecheck: app/(app)/_layout.tsx(10,15): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/(app)/_layout.tsx(13,15): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/(app)/activity.tsx(21,32): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/(app)/activity.tsx(21,74): error TS2339: Property 'session' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/(app)/index.tsx(27,32): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/(app)/index.tsx(27,74): error TS2339: Property 'session' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/index.tsx(9,15): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/index.tsx(13,34): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/receipt/[transactionId].tsx(18,32): error TS2339: Property 'status' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: app/receipt/[transactionId].tsx(18,74): error TS2339: Property 'session' does not exist on type 'SessionContextValue'.
+apps/mobile typecheck: src/api/client.test.ts(20,61): error TS2558: Expected 0 type arguments, but got 1.
+apps/mobile typecheck: src/api/client.test.ts(26,44): error TS2493: Tuple type '[]' of length '0' has no element at index '1'.
+apps/mobile typecheck: src/api/client.test.ts(27,18): error TS2339: Property 'headers' does not exist on type 'never'.
+apps/mobile typecheck: src/session/SessionProvider.tsx(18,39): error TS2312: An interface can only extend an object type or intersection of object types with statically known members.
 apps/mobile typecheck: Failed
 /home/runner/work/yorm-web-app/yorm-web-app/apps/mobile:
  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @yorm/mobile@0.0.0 typecheck: `tsc --noEmit`
