@@ -1,11 +1,51 @@
-name: Foundation 3A TypeScript diagnostic disabled
+name: Foundation 3A TypeScript diagnostic
 
 on:
-  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: write
 
 jobs:
-  disabled:
-    if: false
+  diagnose:
+    if: >-
+      github.head_ref == 'foundation/mobile-shell-v1' &&
+      github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Foundation 3A TypeScript diagnostic completed"
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/mobile-shell-v1
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Capture TypeScript
+        shell: bash
+        run: |
+          set +e
+          pnpm typecheck > foundation3a-tsc.txt 2>&1
+          status=$?
+          printf '\nexit_status=%s\n' "$status" >> foundation3a-tsc.txt
+          exit 0
+
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add foundation3a-tsc.txt
+          git commit -m "chore: refresh Foundation 3A TypeScript diagnostic"
+          git push origin HEAD:foundation/mobile-shell-v1
