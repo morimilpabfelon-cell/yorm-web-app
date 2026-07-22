@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Yorm Pay",
+    "slug": "yorm-pay",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "scheme": "yormpay",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

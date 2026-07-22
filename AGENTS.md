@@ -31,6 +31,12 @@
 - Un recibo solo puede emitirse para una transacción posteada, visible y balanceada.
 - No exponer claves idempotentes, fingerprints internos ni códigos de cuenta en respuestas de actividad o recibos.
 
+- El cliente móvil no calcula saldos ni fabrica estados financieros; consume respuestas confirmadas de la API.
+- En Android/iOS el token Bearer solo puede persistirse mediante SecureStore; no usar AsyncStorage.
+- Variables `EXPO_PUBLIC_*` son públicas y nunca pueden contener secretos.
+- La exportación web no persiste la sesión entre recargas.
+- Foundation 3A no incluye envío P2P, crédito sandbox, biometría, notificaciones, cámara, QR, NFC ni publicación en tiendas.
+
 ## Nomenclatura de producto
 
 ```text
@@ -70,10 +76,10 @@ Black  #000000
 ## Gate actual
 
 ```text
-Issue #11
-Foundation 2C
-Pay Activity + Pay Receipt derivados del ledger
-Riesgo R3.3
+Issue #13
+Foundation 3A
+Base móvil Expo/React Native y cliente API sandbox
+Riesgo R4.1
 Sandbox only
 Sin dinero real, bancos, comercios, tarjetas ni conversión
 ```
