@@ -1,3 +1,4 @@
+mod cors;
 mod error;
 mod model;
 mod store;
@@ -63,16 +64,20 @@ pub fn sandbox_status() -> SystemStatus {
 }
 
 pub fn app() -> Router {
-    app_with_store(SandboxStore::default())
+    app_with_store(SandboxStore::default(), cors::default_sandbox_cors_layer())
 }
 
 pub async fn app_with_database(database_url: &str) -> Result<Router, sqlx::Error> {
+    let cors_layer = cors::sandbox_cors_layer_from_env()
+        .unwrap_or_else(|error| panic!("invalid YORM_CORS_ORIGINS: {error}"));
+
     Ok(app_with_store(
         SandboxStore::connect_postgres(database_url).await?,
+        cors_layer,
     ))
 }
 
-fn app_with_store(store: SandboxStore) -> Router {
+fn app_with_store(store: SandboxStore, cors_layer: tower_http::cors::CorsLayer) -> Router {
     let state = AppState {
         status: Arc::new(sandbox_status()),
         store: Arc::new(store),
@@ -95,6 +100,7 @@ fn app_with_store(store: SandboxStore) -> Router {
         .route("/v1/me/receipts/{transaction_id}", get(get_receipt))
         .route("/v1/me/session", delete(delete_session))
         .layer(TraceLayer::new_for_http())
+        .layer(cors_layer)
         .with_state(state)
 }
 

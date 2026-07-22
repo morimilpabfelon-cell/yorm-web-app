@@ -128,18 +128,44 @@ Pay Activity y Pay Receipt no crean tablas adicionales: se derivan del ledger co
 - Sin afirmaciones de producción.
 
 Tracks #13.
+
 ## Aplicación móvil sandbox
 
 Foundation 3A incorpora un cliente Expo/React Native en `apps/mobile`.
 
 ```powershell
-Copy-Item .pps\mobile\.env.example .pps\mobile\.env
+Copy-Item .\apps\mobile\.env.example .\apps\mobile\.env
 pnpm --filter @yorm/mobile start
 ```
 
-La URL pública del backend se configura con `EXPO_PUBLIC_YORM_API_URL`. No debe contener secretos. En Android Emulator suele utilizarse `http://10.0.2.2:8787`; en web o iOS Simulator sobre el mismo equipo puede utilizarse `http://127.0.0.1:8787`.
+La URL pública del backend se configura con `EXPO_PUBLIC_YORM_API_URL`; nunca debe contener secretos.
 
-Validación estática:
+### Web local
+
+La API habilita CORS únicamente para orígenes sandbox exactos. De forma predeterminada permite:
+
+```text
+http://localhost:8081
+http://127.0.0.1:8081
+http://localhost:19006
+http://127.0.0.1:19006
+```
+
+Para otro puerto local, configura una lista explícita y separada por comas antes de iniciar la API:
+
+```powershell
+$env:YORM_CORS_ORIGINS = "http://localhost:8082,http://127.0.0.1:8082"
+```
+
+No se permite `*`. Los preflight `OPTIONS`, `Authorization`, `Content-Type` e `Idempotency-Key` están limitados a esa lista.
+
+### Android
+
+- Android Emulator usa normalmente `EXPO_PUBLIC_YORM_API_URL=http://10.0.2.2:8787`.
+- Un teléfono físico necesita un development build compatible y la IP LAN de la computadora.
+- Durante la transición de Expo SDK 57, este proyecto no se valida escaneando el QR con Expo Go en un teléfono físico. Se utiliza web, Android Emulator o un development build.
+
+### Validación
 
 ```powershell
 pnpm typecheck
@@ -147,4 +173,4 @@ pnpm test
 pnpm build
 ```
 
-El cliente móvil crea identidad, sesión y wallet únicamente en sandbox; después consulta perfil, Pay Limits, saldo, Pay Activity y Pay Receipt. El ledger sigue siendo la única fuente de verdad financiera.
+El cliente crea identidad, sesión y wallet únicamente en sandbox; después consulta perfil, Pay Limits, saldo, Pay Activity y Pay Receipt. El ledger sigue siendo la única fuente de verdad financiera.

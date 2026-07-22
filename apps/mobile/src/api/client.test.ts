@@ -35,4 +35,25 @@ describe('Yorm API client', () => {
       expect(String(error)).not.toContain(token);
     }
   });
+
+  it('reports the public API URL on network failures without leaking the token', async () => {
+    const token = 'another-opaque-secret';
+    const baseUrl = 'http://127.0.0.1:8787';
+    const fetchImpl: typeof fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const client = createYormApiClient({ baseUrl, fetchImpl, timeoutMs: 100 });
+
+    await expect(client.getMe(token)).rejects.toMatchObject({
+      status: 0,
+      code: 'network_error',
+      message: expect.stringContaining(baseUrl),
+    });
+
+    try {
+      await client.getMe(token);
+    } catch (error) {
+      expect(String(error)).not.toContain(token);
+    }
+  });
 });

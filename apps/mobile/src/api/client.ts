@@ -114,7 +114,11 @@ export function createYormApiClient(options: ClientOptions = {}) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new YormApiError(0, 'timeout', 'La API no respondió dentro del tiempo esperado.');
       }
-      throw new YormApiError(0, 'network_error', 'No fue posible conectar con la API sandbox.');
+      throw new YormApiError(
+        0,
+        'network_error',
+        `No fue posible conectar con la API sandbox en ${baseUrl}. Verifica que la API esté activa y que el origen web esté permitido por CORS.`,
+      );
     } finally {
       clearTimeout(timeout);
     }
