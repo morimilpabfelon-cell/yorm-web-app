@@ -53,7 +53,17 @@ jobs:
           components: rustfmt,clippy
 
       - name: Apply connectivity correction
-        run: python .github/scripts/foundation3a_cors_fix.py
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/foundation3a_cors_fix.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('replace_once(\n    ".github/workflows/ci.yml",')
+          end = text.index('\nreadme = ', start)
+          path.write_text(text[:start] + text[end + 1:], encoding='utf-8')
+          PY
+          python .github/scripts/foundation3a_cors_fix.py
 
       - name: Format Rust
         run: cargo fmt --all
@@ -79,6 +89,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml .github/workflows/ci.yml README.md apps/api/src/lib.rs apps/api/src/cors.rs apps/api/tests/cors.rs apps/mobile/src/api/client.ts apps/mobile/src/api/client.test.ts docs/architecture/0007-foundation-3a-mobile-shell.md
+          git add Cargo.toml README.md apps/api/src/lib.rs apps/api/src/cors.rs apps/api/tests/cors.rs apps/mobile/src/api/client.ts apps/mobile/src/api/client.test.ts docs/architecture/0007-foundation-3a-mobile-shell.md
+          git status --short
           git commit -m "fix: enable Foundation 3A sandbox connectivity"
           git push origin HEAD:foundation/mobile-shell-v1
