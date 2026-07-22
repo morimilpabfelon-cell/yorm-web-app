@@ -249,6 +249,9 @@ async fn concurrent_transfers_cannot_double_spend_sender_balance() {
     .await;
     assert_eq!(credit.status(), StatusCode::CREATED);
 
+    let first_transfer_key = unique_key("concurrent-one");
+    let second_transfer_key = unique_key("concurrent-two");
+
     let first_request = request(
         &app,
         Method::POST,
@@ -258,7 +261,7 @@ async fn concurrent_transfers_cannot_double_spend_sender_balance() {
             "amount_minor_units": "750"
         })),
         Some(&sender.access_token),
-        Some(&unique_key("concurrent-one")),
+        Some(&first_transfer_key),
     );
     let second_request = request(
         &app,
@@ -269,7 +272,7 @@ async fn concurrent_transfers_cannot_double_spend_sender_balance() {
             "amount_minor_units": "750"
         })),
         Some(&sender.access_token),
-        Some(&unique_key("concurrent-two")),
+        Some(&second_transfer_key),
     );
 
     let (first_response, second_response) = tokio::join!(first_request, second_request);
