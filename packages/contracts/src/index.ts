@@ -107,6 +107,23 @@ export interface SandboxCreditResponse {
   readonly posted_at_epoch_seconds: number;
 }
 
+export interface SandboxTransferRequest {
+  readonly recipient_identity_id: string;
+  readonly amount_minor_units: string;
+}
+
+export interface SandboxTransferResponse {
+  readonly transaction_id: string;
+  readonly transaction_kind: 'sandbox_p2p_transfer';
+  readonly sender_wallet_id: string;
+  readonly recipient_wallet_id: string;
+  readonly currency: string;
+  readonly amount_minor_units: string;
+  readonly sender_balance_after_minor_units: string;
+  readonly recipient_balance_after_minor_units: string;
+  readonly posted_at_epoch_seconds: number;
+}
+
 export interface ApiErrorResponse {
   readonly error: {
     readonly code: string;

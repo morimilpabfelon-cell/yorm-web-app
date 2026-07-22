@@ -4,12 +4,13 @@ use uuid::Uuid;
 
 use crate::{
     error::ApiError,
-    model::{SandboxCreditResponse, WalletView},
+    model::{SandboxCreditResponse, SandboxTransferResponse, WalletView},
 };
 
-use super::{SandboxStore, digest_token};
+use super::{SandboxStore, StoreBackend, digest_token};
 
 const SANDBOX_CREDIT_KIND: &str = "sandbox_credit";
+const SANDBOX_P2P_TRANSFER_KIND: &str = "sandbox_p2p_transfer";
 
 #[derive(Clone)]
 pub(super) struct LedgerStore {
@@ -26,9 +27,10 @@ struct WalletRow {
     balance_minor: i64,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(Clone, sqlx::FromRow)]
 struct LockedWalletRow {
     id: Uuid,
+    identity_id: Uuid,
     ledger_account_id: Uuid,
     currency: String,
     country_code: String,
@@ -42,6 +44,20 @@ struct CreditReplayRow {
     currency: String,
     amount_minor: i64,
     resulting_balance_minor: i64,
+    posted_at_epoch_seconds: i64,
+    request_fingerprint: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct TransferReplayRow {
+    transaction_id: Uuid,
+    transaction_kind: String,
+    sender_wallet_id: Uuid,
+    recipient_wallet_id: Uuid,
+    currency: String,
+    amount_minor: i64,
+    sender_balance_after_minor: i64,
+    recipient_balance_after_minor: i64,
     posted_at_epoch_seconds: i64,
     request_fingerprint: String,
 }
@@ -196,6 +212,7 @@ impl LedgerStore {
             r#"
             SELECT
                 wallet.id,
+                wallet.identity_id,
                 wallet.ledger_account_id,
                 wallet.currency,
                 identity.country_code
@@ -278,7 +295,12 @@ impl LedgerStore {
         if inserted_transaction_id.is_none() {
             let existing = load_credit_by_idempotency_key(&mut transaction, idempotency_key)
                 .await?
-                .ok_or_else(|| ApiError::internal("idempotent transaction disappeared"))?;
+                .ok_or_else(|| {
+                    ApiError::conflict(
+                        "IDEMPOTENCY_CONFLICT",
+                        "Idempotency-Key was already used by another operation",
+                    )
+                })?;
             return replay_credit(existing, &fingerprint, wallet.id);
         }
 
@@ -323,6 +345,234 @@ impl LedgerStore {
             balance_after_minor_units: resulting_balance.to_string(),
             posted_at_epoch_seconds: now,
         })
+    }
+
+    pub(super) async fn transfer_wallet(
+        &self,
+        sender_identity_id: Uuid,
+        recipient_identity_id: Uuid,
+        idempotency_key: &str,
+        amount_minor_units: &str,
+        now: u64,
+    ) -> Result<SandboxTransferResponse, ApiError> {
+        if sender_identity_id == recipient_identity_id {
+            return Err(ApiError::bad_request(
+                "SELF_TRANSFER_NOT_ALLOWED",
+                "sender and recipient must be different identities",
+            ));
+        }
+
+        let idempotency_key = validate_idempotency_key(idempotency_key)?;
+        let amount_minor = parse_positive_minor_units(amount_minor_units)?;
+        let now_database = to_database_epoch(now)?;
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|error| database_error("begin sandbox P2P transfer", error))?;
+
+        let (first_identity_id, second_identity_id) = if sender_identity_id < recipient_identity_id
+        {
+            (sender_identity_id, recipient_identity_id)
+        } else {
+            (recipient_identity_id, sender_identity_id)
+        };
+
+        let first_wallet = lock_wallet_by_identity(&mut transaction, first_identity_id)
+            .await?
+            .ok_or_else(|| missing_transfer_wallet(first_identity_id, sender_identity_id))?;
+        let second_wallet = lock_wallet_by_identity(&mut transaction, second_identity_id)
+            .await?
+            .ok_or_else(|| missing_transfer_wallet(second_identity_id, sender_identity_id))?;
+
+        let (sender, recipient) = if first_wallet.identity_id == sender_identity_id {
+            (first_wallet, second_wallet)
+        } else {
+            (second_wallet, first_wallet)
+        };
+
+        if sender.currency != recipient.currency {
+            return Err(ApiError::conflict(
+                "CURRENCY_MISMATCH",
+                "sandbox P2P transfers require both wallets to use the same currency",
+            ));
+        }
+
+        let limit = SandboxStore::limits_for_country(&sender.country_code)
+            .per_operation_minor_units
+            .parse::<i64>()
+            .map_err(|_| ApiError::internal("Pay Limits returned an invalid amount"))?;
+        if amount_minor > limit {
+            return Err(ApiError::bad_request(
+                "PAY_LIMIT_EXCEEDED",
+                format!(
+                    "sandbox transfer exceeds the per-operation limit of {limit} {} minor units",
+                    sender.currency
+                ),
+            ));
+        }
+
+        let fingerprint = digest_token(&format!(
+            "{SANDBOX_P2P_TRANSFER_KIND}|{sender_identity_id}|{recipient_identity_id}|{}|{}|{}|{amount_minor}",
+            sender.id, recipient.id, sender.currency
+        ));
+
+        if let Some(existing) =
+            load_transfer_by_idempotency_key(&mut transaction, idempotency_key).await?
+        {
+            return replay_transfer(existing, &fingerprint, sender.id, recipient.id);
+        }
+
+        let sender_balance = wallet_balance(&mut transaction, sender.ledger_account_id).await?;
+        if sender_balance < amount_minor {
+            return Err(ApiError::conflict(
+                "INSUFFICIENT_FUNDS",
+                format!(
+                    "sandbox wallet balance is {sender_balance} {} minor units, below the requested {amount_minor}",
+                    sender.currency
+                ),
+            ));
+        }
+
+        let recipient_balance =
+            wallet_balance(&mut transaction, recipient.ledger_account_id).await?;
+        let sender_balance_after = sender_balance.checked_sub(amount_minor).ok_or_else(|| {
+            ApiError::internal("sender balance subtraction failed after sufficient-funds check")
+        })?;
+        let recipient_balance_after =
+            recipient_balance.checked_add(amount_minor).ok_or_else(|| {
+                ApiError::bad_request("AMOUNT_OVERFLOW", "recipient balance overflow")
+            })?;
+        let transaction_id = Uuid::new_v4();
+
+        let inserted_transaction_id = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            INSERT INTO ledger_transactions (
+                id,
+                transaction_kind,
+                currency,
+                idempotency_key,
+                request_fingerprint,
+                resulting_balance_minor,
+                posted_at_epoch_seconds
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (idempotency_key) DO NOTHING
+            RETURNING id
+            "#,
+        )
+        .bind(transaction_id)
+        .bind(SANDBOX_P2P_TRANSFER_KIND)
+        .bind(&sender.currency)
+        .bind(idempotency_key)
+        .bind(&fingerprint)
+        .bind(sender_balance_after)
+        .bind(now_database)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|error| database_error("insert sandbox P2P ledger transaction", error))?;
+
+        if inserted_transaction_id.is_none() {
+            let existing = load_transfer_by_idempotency_key(&mut transaction, idempotency_key)
+                .await?
+                .ok_or_else(|| {
+                    ApiError::conflict(
+                        "IDEMPOTENCY_CONFLICT",
+                        "Idempotency-Key was already used by another operation",
+                    )
+                })?;
+            return replay_transfer(existing, &fingerprint, sender.id, recipient.id);
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO sandbox_p2p_transfers (
+                transaction_id,
+                sender_wallet_id,
+                recipient_wallet_id,
+                amount_minor,
+                sender_balance_after_minor,
+                recipient_balance_after_minor,
+                created_at_epoch_seconds
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+        )
+        .bind(transaction_id)
+        .bind(sender.id)
+        .bind(recipient.id)
+        .bind(amount_minor)
+        .bind(sender_balance_after)
+        .bind(recipient_balance_after)
+        .bind(now_database)
+        .execute(&mut *transaction)
+        .await
+        .map_err(|error| database_error("insert sandbox P2P metadata", error))?;
+
+        insert_entry(
+            &mut transaction,
+            transaction_id,
+            sender.ledger_account_id,
+            "debit",
+            amount_minor,
+            now_database,
+        )
+        .await?;
+        insert_entry(
+            &mut transaction,
+            transaction_id,
+            recipient.ledger_account_id,
+            "credit",
+            amount_minor,
+            now_database,
+        )
+        .await?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(|error| database_error("commit sandbox P2P transfer", error))?;
+
+        Ok(SandboxTransferResponse {
+            transaction_id,
+            transaction_kind: SANDBOX_P2P_TRANSFER_KIND.to_owned(),
+            sender_wallet_id: sender.id,
+            recipient_wallet_id: recipient.id,
+            currency: sender.currency,
+            amount_minor_units: amount_minor.to_string(),
+            sender_balance_after_minor_units: sender_balance_after.to_string(),
+            recipient_balance_after_minor_units: recipient_balance_after.to_string(),
+            posted_at_epoch_seconds: now,
+        })
+    }
+}
+
+impl SandboxStore {
+    pub async fn transfer_wallet(
+        &self,
+        sender_identity_id: Uuid,
+        recipient_identity_id: Uuid,
+        idempotency_key: &str,
+        amount_minor_units: &str,
+        now: u64,
+    ) -> Result<SandboxTransferResponse, ApiError> {
+        match &self.backend {
+            StoreBackend::Memory(_) => Err(ApiError::service_unavailable(
+                "DATABASE_REQUIRED",
+                "sandbox P2P transfers require the PostgreSQL backend",
+            )),
+            StoreBackend::Postgres { ledger, .. } => {
+                ledger
+                    .transfer_wallet(
+                        sender_identity_id,
+                        recipient_identity_id,
+                        idempotency_key,
+                        amount_minor_units,
+                        now,
+                    )
+                    .await
+            }
+        }
     }
 }
 
@@ -372,6 +622,45 @@ async fn ensure_account(
     .map_err(|error| database_error("ensure ledger account", error))?;
 
     Ok(())
+}
+
+async fn lock_wallet_by_identity(
+    transaction: &mut Transaction<'_, Postgres>,
+    identity_id: Uuid,
+) -> Result<Option<LockedWalletRow>, ApiError> {
+    sqlx::query_as::<_, LockedWalletRow>(
+        r#"
+        SELECT
+            wallet.id,
+            wallet.identity_id,
+            wallet.ledger_account_id,
+            wallet.currency,
+            identity.country_code
+        FROM sandbox_wallets AS wallet
+        INNER JOIN sandbox_identities AS identity
+            ON identity.id = wallet.identity_id
+        WHERE wallet.identity_id = $1
+        FOR UPDATE OF wallet
+        "#,
+    )
+    .bind(identity_id)
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(|error| database_error("lock sandbox transfer wallet", error))
+}
+
+fn missing_transfer_wallet(identity_id: Uuid, sender_identity_id: Uuid) -> ApiError {
+    if identity_id == sender_identity_id {
+        ApiError::not_found(
+            "WALLET_NOT_FOUND",
+            "sender sandbox wallet has not been created",
+        )
+    } else {
+        ApiError::not_found(
+            "RECIPIENT_WALLET_NOT_FOUND",
+            "recipient sandbox wallet has not been created",
+        )
+    }
 }
 
 async fn wallet_balance(
@@ -465,6 +754,37 @@ async fn load_credit_by_idempotency_key(
     .map_err(|error| database_error("load idempotent sandbox credit", error))
 }
 
+async fn load_transfer_by_idempotency_key(
+    transaction: &mut Transaction<'_, Postgres>,
+    idempotency_key: &str,
+) -> Result<Option<TransferReplayRow>, ApiError> {
+    sqlx::query_as::<_, TransferReplayRow>(
+        r#"
+        SELECT
+            transaction.id AS transaction_id,
+            transaction.transaction_kind,
+            transfer.sender_wallet_id,
+            transfer.recipient_wallet_id,
+            transaction.currency,
+            transfer.amount_minor,
+            transfer.sender_balance_after_minor,
+            transfer.recipient_balance_after_minor,
+            transaction.posted_at_epoch_seconds,
+            transaction.request_fingerprint
+        FROM ledger_transactions AS transaction
+        INNER JOIN sandbox_p2p_transfers AS transfer
+            ON transfer.transaction_id = transaction.id
+        WHERE transaction.idempotency_key = $1
+          AND transaction.transaction_kind = $2
+        "#,
+    )
+    .bind(idempotency_key)
+    .bind(SANDBOX_P2P_TRANSFER_KIND)
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(|error| database_error("load idempotent sandbox P2P transfer", error))
+}
+
 fn replay_credit(
     existing: CreditReplayRow,
     expected_fingerprint: &str,
@@ -486,6 +806,35 @@ fn replay_credit(
         currency: existing.currency,
         amount_minor_units: existing.amount_minor.to_string(),
         balance_after_minor_units: existing.resulting_balance_minor.to_string(),
+        posted_at_epoch_seconds: from_database_epoch(existing.posted_at_epoch_seconds)?,
+    })
+}
+
+fn replay_transfer(
+    existing: TransferReplayRow,
+    expected_fingerprint: &str,
+    expected_sender_wallet_id: Uuid,
+    expected_recipient_wallet_id: Uuid,
+) -> Result<SandboxTransferResponse, ApiError> {
+    if existing.request_fingerprint != expected_fingerprint
+        || existing.sender_wallet_id != expected_sender_wallet_id
+        || existing.recipient_wallet_id != expected_recipient_wallet_id
+    {
+        return Err(ApiError::conflict(
+            "IDEMPOTENCY_CONFLICT",
+            "Idempotency-Key was already used with a different sandbox transfer request",
+        ));
+    }
+
+    Ok(SandboxTransferResponse {
+        transaction_id: existing.transaction_id,
+        transaction_kind: existing.transaction_kind,
+        sender_wallet_id: existing.sender_wallet_id,
+        recipient_wallet_id: existing.recipient_wallet_id,
+        currency: existing.currency,
+        amount_minor_units: existing.amount_minor.to_string(),
+        sender_balance_after_minor_units: existing.sender_balance_after_minor.to_string(),
+        recipient_balance_after_minor_units: existing.recipient_balance_after_minor.to_string(),
         posted_at_epoch_seconds: from_database_epoch(existing.posted_at_epoch_seconds)?,
     })
 }
