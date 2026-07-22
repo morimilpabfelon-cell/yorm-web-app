@@ -1,0 +1,67 @@
+name: Foundation 3A integration
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: >-
+      github.head_ref == 'foundation/mobile-shell-v1' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      EXPO_PUBLIC_YORM_API_URL: http://127.0.0.1:8787
+    steps:
+      - name: Checkout Foundation 3A branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/mobile-shell-v1
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: Generate official Expo SDK 57 template
+        run: |
+          rm -rf /tmp/yorm-mobile
+          npx --yes create-expo-app@latest /tmp/yorm-mobile --template default@sdk-57
+
+      - name: Apply Yorm Pay mobile implementation
+        run: python .github/scripts/foundation3a_integrate.py /tmp/yorm-mobile
+
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Expo-compatible SecureStore
+        working-directory: apps/mobile
+        run: pnpm exec expo install expo-secure-store
+
+      - name: Install mobile test runner
+        working-directory: apps/mobile
+        run: pnpm add --save-dev vitest
+
+      - name: Validate TypeScript, tests and builds
+        run: |
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .gitignore AGENTS.md README.md package.json pnpm-lock.yaml apps/mobile packages/contracts/package.json packages/design-tokens/package.json docs/architecture/0007-foundation-3a-mobile-shell.md
+          git commit -m "feat: add Foundation 3A mobile sandbox shell"
+          git push origin HEAD:foundation/mobile-shell-v1
