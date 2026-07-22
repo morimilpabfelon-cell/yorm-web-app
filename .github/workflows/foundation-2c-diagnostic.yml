@@ -1,4 +1,4 @@
-name: Foundation 2C diagnostic
+name: Foundation 2C fix
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  fix:
     if: >-
       github.head_ref == 'foundation/activity-receipts-v1' &&
       github.actor != 'github-actions[bot]'
@@ -37,20 +37,26 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
-      - name: Capture Clippy
+          components: rustfmt,clippy
+      - name: Fix unused constants
         shell: bash
         run: |
-          set +e
-          cargo clippy --workspace --all-targets --all-features -- -D warnings > foundation2c-clippy.txt 2>&1
-          status=$?
-          printf '\nexit_status=%s\n' "$status" >> foundation2c-clippy.txt
-          exit 0
-      - name: Commit diagnostic
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/store/activity.rs')
+          text = path.read_text()
+          text = text.replace('const SANDBOX_CREDIT_KIND: &str = "sandbox_credit";\n', '')
+          text = text.replace('const SANDBOX_P2P_TRANSFER_KIND: &str = "sandbox_p2p_transfer";\n', '')
+          path.write_text(text)
+          PY
+          rm -f foundation2c-clippy.txt
+          cargo fmt --all
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Commit fix
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add foundation2c-clippy.txt
-          git commit -m "chore: capture Foundation 2C Clippy diagnostic"
+          git add apps/api/src/store/activity.rs foundation2c-clippy.txt
+          git commit -m "fix: remove unused Foundation 2C constants"
           git push origin HEAD:foundation/activity-receipts-v1
