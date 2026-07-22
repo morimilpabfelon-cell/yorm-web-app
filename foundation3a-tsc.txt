@@ -1,0 +1,18 @@
+
+> yorm-pay@0.0.0 typecheck /home/runner/work/yorm-web-app/yorm-web-app
+> pnpm -r --if-present run typecheck
+
+Scope: 3 of 4 workspace projects
+packages/contracts typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck$ tsc -p tsconfig.json --noEmit
+packages/design-tokens typecheck: Done
+packages/contracts typecheck: Done
+apps/mobile typecheck$ tsc --noEmit
+apps/mobile typecheck: tsconfig.json(7,15): error TS5090: Non-relative paths are not allowed when 'baseUrl' is not set. Did you forget a leading './'?
+apps/mobile typecheck: Failed
+/home/runner/work/yorm-web-app/yorm-web-app/apps/mobile:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @yorm/mobile@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.
+
+exit_status=2
