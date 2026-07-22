@@ -5,7 +5,7 @@ Repositorio oficial para construir desde cero el software real de **Yorm Pay**.
 ## Estado
 
 ```text
-FOUNDATION 2B — IN PROGRESS
+FOUNDATION 2C — IN PROGRESS
 SANDBOX ONLY
 REAL MONEY DISABLED
 ```
@@ -72,14 +72,16 @@ POST   http://127.0.0.1:8787/v1/me/wallet
 GET    http://127.0.0.1:8787/v1/me/wallet
 POST   http://127.0.0.1:8787/v1/sandbox/wallet/credits
 POST   http://127.0.0.1:8787/v1/sandbox/transfers
+GET    http://127.0.0.1:8787/v1/me/activity
+GET    http://127.0.0.1:8787/v1/me/receipts/{transaction_id}
 DELETE http://127.0.0.1:8787/v1/me/session
 ```
 
-Validación integral de Foundation 2B en Windows:
+Validación integral de Foundation 2C en Windows:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\test-p2p-transfer-sandbox.ps1
+.\scripts\test-activity-receipts-sandbox.ps1
 ```
 
 ## Persistencia sandbox
@@ -97,6 +99,8 @@ ledger_entries
 sandbox_p2p_transfers
 ```
 
+Pay Activity y Pay Receipt no crean tablas adicionales: se derivan del ledger confirmado.
+
 ## Invariantes financieras
 
 - Todos los montos usan unidades menores enteras; nunca `float`.
@@ -107,6 +111,9 @@ sandbox_p2p_transfers
 - Las transferencias bloquean las dos wallets en orden determinista.
 - Saldo insuficiente no crea transacciones ni asientos parciales.
 - Autoenvíos y transferencias entre monedas distintas se rechazan.
+- Pay Activity y Pay Receipt son proyecciones de solo lectura.
+- Una identidad solo puede consultar operaciones de su propia wallet.
+- Los recibos se generan únicamente para transacciones posteadas y balanceadas.
 
 ## Seguridad
 
@@ -116,7 +123,8 @@ sandbox_p2p_transfers
 - Sin bancos, depósitos o retiros externos.
 - Sin pagos a comercios.
 - Sin tarjetas ni conversión de divisas.
+- Sin claves idempotentes, fingerprints internos ni códigos de cuenta en Activity o Receipt.
 - Sin tokens Bearer ni PIN en texto plano dentro de PostgreSQL.
 - Sin afirmaciones de producción.
 
-Tracks #9.
+Tracks #11.

@@ -1,3 +1,4 @@
+mod activity;
 mod ledger;
 mod postgres;
 
