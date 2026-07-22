@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "pnpm -r --if-present run typecheck",
     "build": "pnpm -r --if-present run build",
-    "clean": "pnpm -r --if-present run clean"
+    "clean": "pnpm -r --if-present run clean",
+    "test": "pnpm -r --if-present run test"
   },
   "devDependencies": {
     "typescript": "7.0.2"

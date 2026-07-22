@@ -5,7 +5,7 @@ Repositorio oficial para construir desde cero el software real de **Yorm Pay**.
 ## Estado
 
 ```text
-FOUNDATION 2C — IN PROGRESS
+FOUNDATION 3A — IN PROGRESS
 SANDBOX ONLY
 REAL MONEY DISABLED
 ```
@@ -17,7 +17,7 @@ La fuente de verdad visual y funcional es el diseño original del fundador en Fi
 ```text
 apps/
   api/       API sandbox Rust/Axum + SQLx/PostgreSQL
-  mobile/    frontera futura React Native/Expo
+  mobile/    Expo/React Native — cliente sandbox
   web/       frontera futura Next.js
   admin/     frontera futura de operaciones
   worker/    frontera futura de tareas y conciliación
@@ -127,4 +127,24 @@ Pay Activity y Pay Receipt no crean tablas adicionales: se derivan del ledger co
 - Sin tokens Bearer ni PIN en texto plano dentro de PostgreSQL.
 - Sin afirmaciones de producción.
 
-Tracks #11.
+Tracks #13.
+## Aplicación móvil sandbox
+
+Foundation 3A incorpora un cliente Expo/React Native en `apps/mobile`.
+
+```powershell
+Copy-Item .pps\mobile\.env.example .pps\mobile\.env
+pnpm --filter @yorm/mobile start
+```
+
+La URL pública del backend se configura con `EXPO_PUBLIC_YORM_API_URL`. No debe contener secretos. En Android Emulator suele utilizarse `http://10.0.2.2:8787`; en web o iOS Simulator sobre el mismo equipo puede utilizarse `http://127.0.0.1:8787`.
+
+Validación estática:
+
+```powershell
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+El cliente móvil crea identidad, sesión y wallet únicamente en sandbox; después consulta perfil, Pay Limits, saldo, Pay Activity y Pay Receipt. El ledger sigue siendo la única fuente de verdad financiera.

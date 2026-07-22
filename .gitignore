@@ -25,3 +25,7 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/.env
