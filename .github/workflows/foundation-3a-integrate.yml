@@ -1,89 +1,11 @@
-name: Foundation 3A integration
+name: Foundation 3A integration disabled
 
 on:
-  pull_request:
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  integrate:
-    if: >-
-      github.head_ref == 'foundation/mobile-shell-v1' &&
-      github.actor != 'github-actions[bot]'
+  disabled:
+    if: false
     runs-on: ubuntu-latest
-    env:
-      CI: '1'
-      EXPO_PUBLIC_YORM_API_URL: http://127.0.0.1:8787
     steps:
-      - name: Checkout Foundation 3A branch
-        uses: actions/checkout@v4
-        with:
-          ref: foundation/mobile-shell-v1
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.34.5 --activate
-
-      - name: Generate official Expo SDK 57 template
-        run: |
-          rm -rf /tmp/yorm-mobile
-          npx --yes create-expo-app@latest /tmp/yorm-mobile --template default@sdk-57 --yes --no-install --no-agents-md
-
-      - name: Apply Yorm Pay mobile implementation
-        run: python .github/scripts/foundation3a_integrate.py /tmp/yorm-mobile
-
-      - name: Install workspace dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Install Expo-compatible SecureStore
-        working-directory: apps/mobile
-        run: pnpm exec expo install expo-secure-store
-
-      - name: Install mobile test runner
-        working-directory: apps/mobile
-        run: pnpm add --save-dev vitest
-
-      - name: Capture validation diagnostic
-        shell: bash
-        run: |
-          set +e
-          {
-            echo '== pnpm typecheck =='
-            pnpm typecheck
-            typecheck_status=$?
-            echo "typecheck_status=${typecheck_status}"
-
-            echo '== pnpm test =='
-            pnpm test
-            test_status=$?
-            echo "test_status=${test_status}"
-
-            echo '== pnpm build =='
-            pnpm build
-            build_status=$?
-            echo "build_status=${build_status}"
-
-            if [ "$typecheck_status" -ne 0 ] || [ "$test_status" -ne 0 ] || [ "$build_status" -ne 0 ]; then
-              echo 'overall_status=1'
-            else
-              echo 'overall_status=0'
-            fi
-          } > foundation3a-validation.txt 2>&1
-          exit 0
-
-      - name: Commit implementation and diagnostic
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .gitignore AGENTS.md README.md package.json pnpm-lock.yaml apps/mobile packages/contracts/package.json packages/design-tokens/package.json docs/architecture/0007-foundation-3a-mobile-shell.md foundation3a-validation.txt
-          git commit -m "feat: add Foundation 3A mobile sandbox shell"
-          git push origin HEAD:foundation/mobile-shell-v1
+      - run: echo "Foundation 3A generator completed"
