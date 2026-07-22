@@ -98,3 +98,58 @@ pub struct SandboxTransferResponse {
     pub recipient_balance_after_minor_units: String,
     pub posted_at_epoch_seconds: u64,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct PayActivityQuery {
+    pub limit: Option<u16>,
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PayActivityCounterparty {
+    pub identity_id: Uuid,
+    pub display_name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PayActivityItem {
+    pub transaction_id: Uuid,
+    pub transaction_kind: String,
+    pub wallet_id: Uuid,
+    pub direction: String,
+    pub currency: String,
+    pub amount_minor_units: String,
+    pub balance_after_minor_units: String,
+    pub counterparty: Option<PayActivityCounterparty>,
+    pub posted_at_epoch_seconds: u64,
+    pub receipt_available: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PayActivityPage {
+    pub module: &'static str,
+    pub environment: &'static str,
+    pub items: Vec<PayActivityItem>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PayReceiptResponse {
+    pub module: &'static str,
+    pub environment: &'static str,
+    pub receipt_version: u8,
+    pub receipt_reference: String,
+    pub transaction_id: Uuid,
+    pub transaction_kind: String,
+    pub status: &'static str,
+    pub direction: String,
+    pub wallet_id: Uuid,
+    pub counterparty: Option<PayActivityCounterparty>,
+    pub currency: String,
+    pub amount_minor_units: String,
+    pub balance_after_minor_units: String,
+    pub posted_at_epoch_seconds: u64,
+    pub ledger_entry_count: i64,
+    pub ledger_debit_total_minor_units: String,
+    pub ledger_credit_total_minor_units: String,
+}

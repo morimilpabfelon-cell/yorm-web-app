@@ -6,18 +6,20 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post, put},
 };
 use serde::Serialize;
 use tower_http::trace::TraceLayer;
+use uuid::Uuid;
 
 use crate::{
     error::ApiError,
     model::{
-        CreateIdentityRequest, CreateSessionRequest, IdentityView, PayLimitsResponse, PinRequest,
+        CreateIdentityRequest, CreateSessionRequest, IdentityView, PayActivityPage,
+        PayActivityQuery, PayLimitsResponse, PayReceiptResponse, PinRequest,
         PinVerificationResponse, SandboxCreditRequest, SandboxCreditResponse,
         SandboxTransferRequest, SandboxTransferResponse, SessionResponse, WalletView,
     },
@@ -89,6 +91,8 @@ fn app_with_store(store: SandboxStore) -> Router {
         .route("/v1/me/wallet", post(create_wallet).get(get_wallet))
         .route("/v1/sandbox/wallet/credits", post(credit_wallet))
         .route("/v1/sandbox/transfers", post(transfer_wallet))
+        .route("/v1/me/activity", get(get_activity))
+        .route("/v1/me/receipts/{transaction_id}", get(get_receipt))
         .route("/v1/me/session", delete(delete_session))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -251,6 +255,31 @@ async fn transfer_wallet(
         )
         .await?;
     Ok((StatusCode::CREATED, Json(transfer)))
+}
+
+async fn get_activity(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<PayActivityQuery>,
+) -> Result<Json<PayActivityPage>, ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    Ok(Json(
+        state
+            .store
+            .list_activity(identity.id, query.limit, query.cursor.as_deref())
+            .await?,
+    ))
+}
+
+async fn get_receipt(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(transaction_id): Path<Uuid>,
+) -> Result<Json<PayReceiptResponse>, ApiError> {
+    let identity = authenticate(&headers, &state).await?;
+    Ok(Json(
+        state.store.get_receipt(identity.id, transaction_id).await?,
+    ))
 }
 
 async fn delete_session(

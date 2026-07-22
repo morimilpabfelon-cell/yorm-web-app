@@ -124,6 +124,51 @@ export interface SandboxTransferResponse {
   readonly posted_at_epoch_seconds: number;
 }
 
+export interface PayActivityCounterparty {
+  readonly identity_id: string;
+  readonly display_name: string;
+}
+
+export interface PayActivityItem {
+  readonly transaction_id: string;
+  readonly transaction_kind: 'sandbox_credit' | 'sandbox_p2p_transfer';
+  readonly wallet_id: string;
+  readonly direction: 'credit' | 'debit';
+  readonly currency: string;
+  readonly amount_minor_units: string;
+  readonly balance_after_minor_units: string;
+  readonly counterparty: PayActivityCounterparty | null;
+  readonly posted_at_epoch_seconds: number;
+  readonly receipt_available: true;
+}
+
+export interface PayActivityPage {
+  readonly module: 'Pay Activity';
+  readonly environment: 'sandbox';
+  readonly items: readonly PayActivityItem[];
+  readonly next_cursor: string | null;
+}
+
+export interface PayReceiptResponse {
+  readonly module: 'Pay Receipt';
+  readonly environment: 'sandbox';
+  readonly receipt_version: 1;
+  readonly receipt_reference: string;
+  readonly transaction_id: string;
+  readonly transaction_kind: 'sandbox_credit' | 'sandbox_p2p_transfer';
+  readonly status: 'posted';
+  readonly direction: 'credit' | 'debit';
+  readonly wallet_id: string;
+  readonly counterparty: PayActivityCounterparty | null;
+  readonly currency: string;
+  readonly amount_minor_units: string;
+  readonly balance_after_minor_units: string;
+  readonly posted_at_epoch_seconds: number;
+  readonly ledger_entry_count: number;
+  readonly ledger_debit_total_minor_units: string;
+  readonly ledger_credit_total_minor_units: string;
+}
+
 export interface ApiErrorResponse {
   readonly error: {
     readonly code: string;

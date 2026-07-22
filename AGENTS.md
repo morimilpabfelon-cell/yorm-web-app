@@ -19,12 +19,17 @@
 - Cambios mobile nativos requieren issue y revisión separada.
 - La ejecución normal usa PostgreSQL; el backend en memoria existe solo para pruebas unitarias rápidas.
 - No registrar PIN, tokens Bearer, hashes Argon2, digests de sesión, claves idempotentes ni `DATABASE_URL` en logs.
-- Wallet, ledger y P2P solo pueden operar en sandbox dentro del Issue #9.
+- Wallet, ledger y P2P solo operan en sandbox.
 - Transacciones, metadatos P2P y asientos posteados son inmutables; todo saldo se deriva del ledger.
 - El emisor de una transferencia se deriva exclusivamente de la sesión autenticada.
 - Las wallets participantes se bloquean en orden determinista antes de consultar o gastar saldo.
 - Una transferencia no puede dejar saldo negativo ni escrituras parciales.
 - Transferencias entre monedas distintas, autoenvíos, comercios, bancos, tarjetas y conversión permanecen deshabilitados.
+- Pay Activity y Pay Receipt son proyecciones de solo lectura; no pueden crear ni modificar movimientos.
+- Una identidad solo puede consultar actividad y recibos de su propia wallet.
+- La paginación de actividad debe ser estable por timestamp e identificador de transacción.
+- Un recibo solo puede emitirse para una transacción posteada, visible y balanceada.
+- No exponer claves idempotentes, fingerprints internos ni códigos de cuenta en respuestas de actividad o recibos.
 
 ## Nomenclatura de producto
 
@@ -65,10 +70,10 @@ Black  #000000
 ## Gate actual
 
 ```text
-Issue #9
-Foundation 2B
-Transferencias P2P sandbox atómicas sobre el ledger
-Riesgo R3.2
+Issue #11
+Foundation 2C
+Pay Activity + Pay Receipt derivados del ledger
+Riesgo R3.3
 Sandbox only
 Sin dinero real, bancos, comercios, tarjetas ni conversión
 ```
