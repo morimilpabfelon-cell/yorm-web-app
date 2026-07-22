@@ -1,0 +1,84 @@
+name: Foundation 3A connectivity correction
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: >-
+      github.head_ref == 'foundation/mobile-shell-v1' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: yorm_pay_test
+          POSTGRES_USER: yorm
+          POSTGRES_PASSWORD: yorm_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yorm -d yorm_pay_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: '1'
+      DATABASE_URL: postgres://yorm:yorm_test_only@127.0.0.1:5432/yorm_pay_test?sslmode=disable
+      EXPO_PUBLIC_YORM_API_URL: http://127.0.0.1:8787
+    steps:
+      - name: Checkout Foundation 3A branch
+        uses: actions/checkout@v4
+        with:
+          ref: foundation/mobile-shell-v1
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Apply connectivity correction
+        run: python .github/scripts/foundation3a_cors_fix.py
+
+      - name: Format Rust
+        run: cargo fmt --all
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate TypeScript and mobile
+        run: |
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Validate Rust and PostgreSQL
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace
+          cargo build --workspace
+
+      - name: Commit correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml .github/workflows/ci.yml README.md apps/api/src/lib.rs apps/api/src/cors.rs apps/api/tests/cors.rs apps/mobile/src/api/client.ts apps/mobile/src/api/client.test.ts docs/architecture/0007-foundation-3a-mobile-shell.md
+          git commit -m "fix: enable Foundation 3A sandbox connectivity"
+          git push origin HEAD:foundation/mobile-shell-v1
