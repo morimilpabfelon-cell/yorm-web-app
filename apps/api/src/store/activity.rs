@@ -11,8 +11,6 @@ use super::{SandboxStore, StoreBackend, digest_token};
 
 const DEFAULT_ACTIVITY_LIMIT: u16 = 20;
 const MAX_ACTIVITY_LIMIT: u16 = 100;
-const SANDBOX_CREDIT_KIND: &str = "sandbox_credit";
-const SANDBOX_P2P_TRANSFER_KIND: &str = "sandbox_p2p_transfer";
 
 #[derive(Clone)]
 struct ActivityStore {
